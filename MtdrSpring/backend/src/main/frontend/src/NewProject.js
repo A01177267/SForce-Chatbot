@@ -13,31 +13,31 @@ import React, { useState } from "react";
 import Button from '@mui/material/Button';
 
 
-function NewItem(props) {
-  const [item, setItem] = useState('');
+function NewProject(props) {
+  const [project, setProject] = useState('');
   function handleSubmit(e) {
-    // console.log("NewItem.handleSubmit("+e+")");
-    if (!item.trim()) {
+    // console.log("NewProject.handleSubmit("+e+")");
+    if (!project.trim()) {
       return;
     }
     // addItem makes the REST API call:
-    props.addItem(item);
-    setItem("");
+    props.addProject(project);
+    setProject("");
     e.preventDefault();
   }
   function handleChange(e) {
-    setItem(e.target.value);
+    setProject(e.target.value);
   }
   return (
-    <div id="newinputform" >
+    <div id="newprojectinputform" >
     <form>
       <input
-        id="newiteminput"
-        placeholder="Nueva Tarea"
+        id="newprojectinput"
+        placeholder="Nueva Proyecto"
         type="text"
         autoComplete="off"
-        value={item}
-        style={{ width: '80%' }}
+        value={project}
+        style={{ width: '70%' }}
         onChange={handleChange}
         // No need to click on the "ADD" button to add a todo item. You
         // can simply press "Enter":
@@ -49,7 +49,7 @@ function NewItem(props) {
       />
       <span>&nbsp;&nbsp;</span>
       <Button
-        className="AddButton"
+        className="AddProjectButton"
         variant="contained"
         disabled={props.isInserting}
         onClick={!props.isInserting ? handleSubmit : null}
@@ -62,4 +62,4 @@ function NewItem(props) {
   );
 }
 
-export default NewItem;
+export default NewProject;
