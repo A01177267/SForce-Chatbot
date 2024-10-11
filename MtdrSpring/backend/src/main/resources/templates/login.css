@@ -1,0 +1,29 @@
+html, body {
+    height: 100vh;
+    font-family: Arial, sans-serif;
+    background-color: #D9D9D9;
+  }
+
+  /* Header y Footer */
+  header, footer {
+    background-color: #3a3632;
+    color: white;
+    height: 5%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+.Login{
+    background-color: #EBEBEB;
+
+  }
+
+
+
+  /* Estilo para mensajes de error */
+  .error {
+    color: red;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
