@@ -5,6 +5,7 @@ import com.springboot.MyTodoList.service.TareaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import javax.validation.Valid;
 import java.util.List;
@@ -15,6 +16,7 @@ import com.springboot.MyTodoList.repository.ProyectoRepository; // Import the Pr
 
 @RestController
 @RequestMapping("/api/tareas")
+@CrossOrigin(origins = "http://localhost:8080", allowCredentials = "true")
 public class TareaController {
 
     @Autowired
@@ -46,6 +48,7 @@ public class TareaController {
 
     // Update an existing task
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Tarea> updateTask(@PathVariable Long id, @Valid @RequestBody Tarea tarea) {
         return tareaService.actualizarTarea(id, tarea)
                            .map(updatedTarea -> ResponseEntity.ok(updatedTarea))
@@ -54,6 +57,7 @@ public class TareaController {
 
     // Delete a task
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
         boolean isDeleted = tareaService.eliminarTarea(id);
         if (!isDeleted) {
