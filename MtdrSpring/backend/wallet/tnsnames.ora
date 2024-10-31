@@ -1,0 +1,12 @@
+reacttodorrs2o_high = (description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1522)(host=adb.mx-queretaro-1.oraclecloud.com))(connect_data=(service_name=gb6edab1d5f4c81_reacttodorrs2o_high.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))
+
+reacttodorrs2o_low = (description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1522)(host=adb.mx-queretaro-1.oraclecloud.com))(connect_data=(service_name=gb6edab1d5f4c81_reacttodorrs2o_low.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))
+
+reacttodorrs2o_medium = (description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1522)(host=adb.mx-queretaro-1.oraclecloud.com))(connect_data=(service_name=gb6edab1d5f4c81_reacttodorrs2o_medium.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))
+
+reacttodorrs2o_tp = (description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1522)(host=adb.mx-queretaro-1.oraclecloud.com))(connect_data=(service_name=gb6edab1d5f4c81_reacttodorrs2o_tp.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))
+
+reacttodorrs2o_tpurgent = (description= (retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1522)(host=adb.mx-queretaro-1.oraclecloud.com))(connect_data=(service_name=gb6edab1d5f4c81_reacttodorrs2o_tpurgent.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))
+
+
+
