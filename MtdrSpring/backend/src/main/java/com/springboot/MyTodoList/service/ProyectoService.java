@@ -15,17 +15,14 @@ public class ProyectoService {
     @Autowired
     private ProyectoRepository proyectoRepository;
 
-    // Create a new project
     public Proyecto crearProyecto(Proyecto proyecto) {
         return proyectoRepository.save(proyecto);
     }
 
-    // List all projects
     public List<Proyecto> findAll() {
         return proyectoRepository.findAll();
     }
 
-    // Update an existing project
     public Optional<Proyecto> actualizarProyecto(Long id, Proyecto proyecto) {
         return proyectoRepository.findById(id)
             .map(proyectoExistente -> {
@@ -37,7 +34,6 @@ public class ProyectoService {
             });
     }
 
-    // Delete a project
     public boolean eliminarProyecto(Long id) {
         if (proyectoRepository.existsById(id)) {
             proyectoRepository.deleteById(id);
@@ -46,24 +42,21 @@ public class ProyectoService {
         return false;
     }
 
-    // Get a project by ID
     public ResponseEntity<Proyecto> obtenerProyectoPorId(Long id) {
         Optional<Proyecto> proyectoData = proyectoRepository.findById(id);
-        if (proyectoData.isPresent()){
+        if (proyectoData.isPresent()) {
             return new ResponseEntity<>(proyectoData.get(), HttpStatus.OK);
-        }else{
+        } else {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
 
-
     public ResponseEntity<Proyecto> obtenerProyectoPorNombre(String nombre) {
         List<Proyecto> proyectos = proyectoRepository.findByNombre(nombre);
         if (!proyectos.isEmpty()) {
-            return new ResponseEntity<>(proyectos.get(0), HttpStatus.OK); // Asumimos que el nombre es único
+            return new ResponseEntity<>(proyectos.get(0), HttpStatus.OK);
         } else {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
 }
-

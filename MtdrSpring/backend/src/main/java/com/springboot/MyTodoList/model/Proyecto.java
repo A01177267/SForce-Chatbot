@@ -6,30 +6,30 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Entity
-@Table(name = "NEW_PROJECT") // Specify the correct table name and schema
+@Table(name = "NEW_PROJECT")
 public class Proyecto {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID") // Ensure the column name matches exactly with DB schema
+    @Column(name = "ID")
     private Long id;
 
-    @Column(name = "NAME") // Match the column name for 'NAME'
+    @Column(name = "NAME")
     private String nombre;
 
-    @Column(name = "STATUS", length = 50) // Match the column name for 'STATUS' and specify length
+    @Column(name = "STATUS", length = 50)
     private String estatus;
 
     @Temporal(TemporalType.DATE)
-    @Column(name = "START_DATE") // Match the column name for 'START_DATE'
+    @Column(name = "START_DATE")
     private Date fechaInicio;
 
     @Temporal(TemporalType.DATE)
-    @Column(name = "END_DATE") // Match the column name for 'END_DATE'
+    @Column(name = "END_DATE")
     private Date fechaFin;
 
     @OneToMany(mappedBy = "proyecto", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
     @JsonManagedReference
-    private List<Tarea> tareas; // Configuración para manejo de las tareas como parte del proyecto
+    private List<Tarea> tareas;
 
     public Proyecto() {
     }
@@ -43,7 +43,6 @@ public class Proyecto {
         this.tareas = tareas;
     }
 
-    // Getters y setters
     public Long getId() {
         return id;
     }

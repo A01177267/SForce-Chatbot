@@ -9,9 +9,6 @@ import org.springframework.web.bind.annotation.*;
 import javax.validation.Valid;
 import java.util.List;
 import java.util.Optional;
-import com.springboot.MyTodoList.dto.TareaDTO;
-import com.springboot.MyTodoList.model.Proyecto;
-import com.springboot.MyTodoList.repository.ProyectoRepository; // Import the ProyectoRepository
 
 @RestController
 @RequestMapping("/api/tareas")
@@ -20,23 +17,17 @@ public class TareaController {
     @Autowired
     private TareaService tareaService;
 
-    @Autowired
-    private ProyectoRepository proyectoRepository;
-
-    // Get all tasks
     @GetMapping
     public List<Tarea> getAllTasks() {
         return tareaService.findAll();
     }
 
-    // Create a new task
     @PostMapping("/project/{projectId}")
-    public ResponseEntity<Tarea> crearTask(@PathVariable(value="projectId") Long projectId ,@Valid @RequestBody Tarea tarea) {
-        Tarea newTask = tareaService.crearTarea(projectId,tarea);
+    public ResponseEntity<Tarea> crearTask(@PathVariable(value="projectId") Long projectId, @Valid @RequestBody Tarea tarea) {
+        Tarea newTask = tareaService.crearTarea(projectId, tarea);
         return ResponseEntity.status(HttpStatus.CREATED).body(newTask);
     }
 
-    // Get a single task by ID
     @GetMapping("/{id}")
     public ResponseEntity<Tarea> getTaskById(@PathVariable Long id) {
         Optional<Tarea> tarea = tareaService.obtenerTareaPorId(id);
@@ -44,7 +35,6 @@ public class TareaController {
                     .orElse(ResponseEntity.notFound().build());
     }
 
-    // Update an existing task
     @PutMapping("/{id}")
     public ResponseEntity<Tarea> updateTask(@PathVariable Long id, @Valid @RequestBody Tarea tarea) {
         return tareaService.actualizarTarea(id, tarea)
@@ -52,7 +42,6 @@ public class TareaController {
                            .orElse(ResponseEntity.notFound().build());
     }
 
-    // Delete a task
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
         boolean isDeleted = tareaService.eliminarTarea(id);
