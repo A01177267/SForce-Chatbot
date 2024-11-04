@@ -453,24 +453,6 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 				}
 
 			}
-
-			else {
-				try {
-					ToDoItem newItem = new ToDoItem();
-					newItem.setDescription(messageTextFromTelegram);
-					newItem.setCreation_ts(OffsetDateTime.now());
-					newItem.setDone(false);
-					ResponseEntity entity = addToDoItem(newItem);
-
-					SendMessage messageToTelegram = new SendMessage();
-					messageToTelegram.setChatId(chatId);
-					messageToTelegram.setText(BotMessages.NEW_ITEM_ADDED.getMessage());
-
-					execute(messageToTelegram);
-				} catch (Exception e) {
-					logger.error(e.getLocalizedMessage(), e);
-				}
-			}
 		}
 	}
 
@@ -533,9 +515,7 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 	
 	// Método para manejar la selección del proyecto
 	private void handleProjectSelection(long chatId, String messageText) {
-		if (messageText.startsWith("📝 ")) {
-			String[] parts = messageText.substring(3).split(" - ");
-			Long projectId = Long.parseLong(parts[0]);
+			Long projectId = Long.parseLong(messageText);
 			
 			ResponseEntity<Proyecto> response = ProyectoService.obtenerProyectoPorId(projectId);
 			if (response.getStatusCode() == HttpStatus.OK) {
@@ -566,7 +546,6 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 					logger.error("Error al enviar mensaje", e);
 				}
 			}
-		}
 	}
 	
 	// Método para manejar la actualización del nombre
@@ -589,14 +568,9 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 		keyboard.add(row1);
 		
 		KeyboardRow row2 = new KeyboardRow();
-		row2.add("ACTIVO");
-		row2.add("INACTIVO");
+		row2.add("Active");
+		row2.add("Inactive");
 		keyboard.add(row2);
-		
-		KeyboardRow row3 = new KeyboardRow();
-		row3.add("COMPLETADO");
-		row3.add("PAUSADO");
-		keyboard.add(row3);
 		
 		keyboardMarkup.setKeyboard(keyboard);
 		keyboardMarkup.setResizeKeyboard(true);
@@ -618,17 +592,11 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 		// Usar switch tradicional en lugar de switch expression
 		String status = null;
 		switch (messageText) {
-			case "ACTIVO":
-				status = "ACTIVO";
+			case "Active":
+				status = "Active";
 				break;
-			case "INACTIVO":
-				status = "INACTIVO";
-				break;
-			case "COMPLETADO":
-				status = "COMPLETADO";
-				break;
-			case "PAUSADO":
-				status = "PAUSADO";
+			case "Inactive":
+				status = "Inactive";
 				break;
 		}
 		
