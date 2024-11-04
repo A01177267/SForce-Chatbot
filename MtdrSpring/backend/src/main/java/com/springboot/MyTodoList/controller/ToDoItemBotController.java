@@ -5,6 +5,9 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import javax.persistence.EntityNotFoundException;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,8 +28,12 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.model.Proyecto;
+import com.springboot.MyTodoList.model.Tarea;
 import com.springboot.MyTodoList.service.ToDoItemService;
 import com.springboot.MyTodoList.service.ProyectoService;
+import com.springboot.MyTodoList.repository.ProyectoRepository;
+import com.springboot.MyTodoList.repository.TareaRepository;
+import com.springboot.MyTodoList.service.TareaService;
 import com.springboot.MyTodoList.util.BotCommands;
 import com.springboot.MyTodoList.util.BotHelper;
 import com.springboot.MyTodoList.util.BotLabels;
@@ -37,13 +44,23 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 	private static final Logger logger = LoggerFactory.getLogger(ToDoItemBotController.class);
 	private ToDoItemService toDoItemService;
 	private ProyectoService ProyectoService;
+	private ProyectoRepository proyectoRepository;
+	private TareaRepository tareaRepository;
+	private TareaService tareaService;
 	private String botName;
-
+    private Long projectId;
 	private Map<Long, Boolean> creatingProjectState = new HashMap<>();
 	private Map<Long, UpdateProjectState> projectUpdateStates = new HashMap<>();
 	private Map<Long, Proyecto> selectedProjects = new HashMap<>();
 	private Map<Long, Boolean> viewingProjectState = new HashMap<>();
 	private Map<Long, Boolean> deletingProjectState = new HashMap<>();
+	private Map<Long, UpdateProjectState> TaskUpdateStates = new HashMap<>();
+	private Map<Long, Proyecto> selectedTasks = new HashMap<>();
+	private Map<Long, Boolean> viewingTaskState = new HashMap<>();
+	private Map<Long, Boolean> deletingTaskState = new HashMap<>();
+	private Map<Long, Long> selectedProjectMap = new HashMap<>(); // chatId -> projectId
+    private Map<Long, Boolean> creatingTaskState = new HashMap<>(); // chatId -> isCreatingTask
+
 
 	private enum UpdateProjectState {
 		SELECTING_PROJECT,
@@ -51,13 +68,25 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 		SELECTING_STATUS
 	}
 
-
-	public ToDoItemBotController(String botToken, String botName, ToDoItemService toDoItemService, ProyectoService ProyectoService) {
+	public Tarea crearTarea(Long projectId, Tarea tarea) {
+		// Buscar el proyecto correspondiente
+		Proyecto proyecto = proyectoRepository.findById(projectId)
+							.orElseThrow(() -> new EntityNotFoundException("Proyecto no encontrado"));
+	
+		// Asociar la tarea con el proyecto antes de guardarla
+		tarea.setProyecto(proyecto);
+		
+		// Guardar la tarea asociada con el proyecto
+		return tareaRepository.save(tarea);
+	}
+	
+	public ToDoItemBotController(String botToken, String botName, ToDoItemService toDoItemService, ProyectoService ProyectoService,TareaService tareaService) {
 		super(botToken);
 		logger.info("Bot Token: " + botToken);
 		logger.info("Bot name: " + botName);
 		this.toDoItemService = toDoItemService;
 		this.ProyectoService = ProyectoService;
+		this.tareaService = tareaService;
 		this.botName = botName;
 	}
 
@@ -78,6 +107,16 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 				handleProjectDeletion(chatId, messageTextFromTelegram);
 			}
 
+
+			if (TaskUpdateStates.containsKey(chatId)) {
+				handleProjectUpdate(chatId, messageTextFromTelegram);
+				return;
+			}
+
+			else if (deletingTaskState.getOrDefault(chatId, false) && messageTextFromTelegram.startsWith("📋 Proyecto: ")) {
+				handleProjectDeletion(chatId, messageTextFromTelegram);
+			}
+
 			if (creatingProjectState.getOrDefault(chatId, false)) {
 				// Crear el proyecto con el nombre proporcionado
 				Proyecto nuevoProyecto = new Proyecto();
@@ -89,6 +128,25 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 				creatingProjectState.put(chatId, false);
 				return;
 			}
+
+			if (creatingTaskState.getOrDefault(chatId, false)) {
+				// Crear la tarea
+				Tarea newTask = new Tarea();
+				newTask.setDescripcion(messageTextFromTelegram);
+		
+				Long projectId = selectedProjectMap.get(chatId);
+				try {
+					Tarea createdTask = tareaService.crearTarea(projectId, newTask);
+					BotHelper.sendMessageToTelegram(chatId, "Tarea creada con éxito: " + createdTask.getDescripcion(), this);
+				} catch (Exception e) {
+					BotHelper.sendMessageToTelegram(chatId, "Error al crear la tarea: " + e.getMessage(), this);
+				}
+		
+				// Restablecer el estado de creación de tareas
+				creatingTaskState.put(chatId, false);
+				selectedProjectMap.remove(chatId); // Limpiar el proyecto seleccionado
+			}
+			
 				
 			if (messageTextFromTelegram.equals(BotCommands.START_COMMAND.getCommand())
 					|| messageTextFromTelegram.equals(BotLabels.SHOW_MAIN_SCREEN.getLabel())) {
@@ -102,14 +160,14 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 	
 				// Primera fila de botones
 				KeyboardRow row = new KeyboardRow();
-				row.add(BotLabels.LIST_ALL_ITEMS.getLabel());
-				row.add(BotLabels.ADD_NEW_ITEM.getLabel());
+				row.add(BotLabels.LIST_TASKS.getLabel());
+				row.add(BotLabels.ADD_TASK.getLabel());
 				keyboard.add(row);
 	
 				// Segunda fila de botones
 				row = new KeyboardRow();
-				row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
-				row.add(BotLabels.HIDE_MAIN_SCREEN.getLabel());
+				row.add(BotLabels.UPDATE_TASK.getLabel());
+				row.add(BotLabels.DELETE_TASK.getLabel());
 				keyboard.add(row);
 	
 				// Tercera fila para mostrar y agregar proyectos
@@ -143,12 +201,79 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
 			}
 
+			else if (viewingProjectState.getOrDefault(chatId, false)) {
+				if (messageTextFromTelegram.trim().isEmpty()) {
+					BotHelper.sendMessageToTelegram(chatId, "Por favor, selecciona un proyecto. No puedes dejarlo vacío:", this);
+					return; // Salir del método para esperar un nuevo input
+				}
+			
+				Long selectedProjectId = parseProjectId(messageTextFromTelegram);
+				if (selectedProjectId != null) {
+					selectedProjectMap.put(chatId, selectedProjectId); // Almacenar el proyecto seleccionado
+					creatingTaskState.put(chatId, true); // Cambiar el estado a creación de tareas
+					BotHelper.sendMessageToTelegram(chatId, "Por favor, envíame el nombre de la nueva tarea:", this);
+				} else {
+					BotHelper.sendMessageToTelegram(chatId, "Selección de proyecto inválida. Intenta de nuevo.", this);
+				}
+			}
+			
+
+			else if (messageTextFromTelegram.equals(BotLabels.ADD_TASK.getLabel())) {
+					// Obtener la lista de proyectos
+					List<Proyecto> proyectos = ProyectoService.findAll();
+					
+					// Construir el teclado con botones
+					ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+					List<KeyboardRow> keyboard = new ArrayList<>();
+					
+					// Botón para volver al menú principal
+					KeyboardRow mainMenuRow = new KeyboardRow();
+					mainMenuRow.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+					keyboard.add(mainMenuRow);
+					
+					// Crear un botón para cada proyecto
+					for (Proyecto proyecto : proyectos) {
+						KeyboardRow row = new KeyboardRow();
+						// Usar un formato especial para identificar que es un botón de proyecto
+						row.add("📋 Proyecto: " + proyecto.getId() + " - " + proyecto.getNombre());
+						keyboard.add(row);
+					}
+		
+		keyboardMarkup.setKeyboard(keyboard);
+		keyboardMarkup.setResizeKeyboard(true);
+		
+		SendMessage messageToTelegram = new SendMessage();
+		messageToTelegram.setChatId(chatId);
+		messageToTelegram.setText("Selecciona un proyecto para crear la tarea:");
+		messageToTelegram.setReplyMarkup(keyboardMarkup);
+		
+		// Activar el estado de visualización de proyectos
+		viewingProjectState.put(chatId, true);
+		
+		try {
+			execute(messageToTelegram);
+		} catch (TelegramApiException e) {
+			logger.error(e.getLocalizedMessage(), e);
+		}
+
+
+			}
+
 			else if (messageTextFromTelegram.equals(BotLabels.UPDATE_PROJECT.getLabel())) {
 				startProjectUpdate(chatId);
 			}
 
 			else if (messageTextFromTelegram.equals(BotLabels.DELETE_PROJECT.getLabel())) {
 				startProjectDeletion(chatId);
+			}
+			else if (messageTextFromTelegram.startsWith("📋 Proyecto: ")) {
+				// Obtener el ID del proyecto seleccionado
+				Long projectId = parseProjectId(messageTextFromTelegram);
+				if (projectId != null) {
+					// Activar el estado de creación de tarea
+					creatingTaskState.put(chatId, true);
+					BotHelper.sendMessageToTelegram(chatId, "Por favor, envíame el nombre de la tarea que deseas crear.", this);
+				}
 			}
 
 			else if (messageTextFromTelegram.equals("✅ Confirmar eliminación") && 
@@ -474,6 +599,71 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 		}
 	}
 
+
+
+
+	private void handleIncomingMessage(long chatId, String messageTextFromTelegram) {
+		// Si el usuario está seleccionando un proyecto
+		if (messageTextFromTelegram.startsWith("📋 Proyecto:")) {
+			handleProjectSelection(chatId, messageTextFromTelegram); // Manejar la selección del proyecto
+			return; // Salir del método después de manejar la selección
+		}
+	
+		// Si el usuario está intentando agregar una tarea
+		if (creatingTaskState.getOrDefault(chatId, false)) {
+			Long projectId = selectedProjectMap.get(chatId);
+	
+			// Verificar que el proyecto haya sido seleccionado
+			if (projectId == null) {
+				BotHelper.sendMessageToTelegram(chatId, "Error: No se ha seleccionado un proyecto para esta tarea.", this);
+				return;
+			}
+	
+			// Crear la tarea, asignarle una descripción y establecer el estado predeterminado "In Progress"
+			Tarea newTask = new Tarea();
+			newTask.setDescripcion(messageTextFromTelegram);
+			newTask.setEstatus("In Progress"); // Establecer estado por defecto
+	
+			// Obtener el proyecto para establecerlo en la tarea
+			ResponseEntity<Proyecto> responseEntity = ProyectoService.obtenerProyectoPorId(projectId);
+	
+			// Verificar si la respuesta fue exitosa
+			if (responseEntity.getStatusCode() != HttpStatus.OK) {
+				BotHelper.sendMessageToTelegram(chatId, "Error: El proyecto seleccionado no existe.", this);
+				return;
+			}
+	
+			Proyecto proyecto = responseEntity.getBody(); // Aquí es donde se define la variable proyecto
+	
+			// Asegúrate de que el proyecto no sea nulo
+			if (proyecto == null) {
+				BotHelper.sendMessageToTelegram(chatId, "Error: El proyecto seleccionado no existe.", this);
+				return;
+			}
+	
+			// Establecer el proyecto en la tarea
+			newTask.setProyecto(proyecto); // Aquí se establece el proyecto en la tarea
+	
+			try {
+				// Crear la tarea asociada al proyecto
+				Tarea createdTask = tareaService.crearTarea(projectId, newTask);
+				// Incluir el ID del proyecto en el mensaje
+				BotHelper.sendMessageToTelegram(chatId, "Tarea creada con éxito: " + createdTask.getDescripcion() + 
+												  " (Estado: " + createdTask.getEstatus() + 
+												  ", ID del Proyecto: " + proyecto.getId() + ")", this);
+			} catch (Exception e) {
+				BotHelper.sendMessageToTelegram(chatId, "Error al crear la tarea: " + e.getMessage(), this);
+			}
+	
+			// Restablecer el estado de creación de tareas
+			creatingTaskState.put(chatId, false);
+			selectedProjectMap.remove(chatId); // Limpiar el proyecto seleccionado
+		}
+	}
+	
+	
+	
+
 	private void startProjectUpdate(long chatId) {
 		List<Proyecto> proyectos = ProyectoService.findAll();
 		
@@ -530,6 +720,7 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 				break;
 		}
 	}
+	
 	
 	// Método para manejar la selección del proyecto
 	private void handleProjectSelection(long chatId, String messageText) {
@@ -669,6 +860,19 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 		// Limpiar estados
 		projectUpdateStates.remove(chatId);
 		selectedProjects.remove(chatId);
+	}
+
+	private Long parseProjectId(String messageText) {
+		String[] parts = messageText.split(" - ");
+		if (parts.length > 0) {
+			try {
+				// Extraer el ID del proyecto del mensaje
+				return Long.parseLong(parts[0].replace("📋 Proyecto: ", "").trim());
+			} catch (NumberFormatException e) {
+				return null; // Retorna null si no es un ID válido
+			}
+		}
+		return null; // Retorna null si el formato no es correcto
 	}
 
 	private void startProjectDeletion(long chatId) {
