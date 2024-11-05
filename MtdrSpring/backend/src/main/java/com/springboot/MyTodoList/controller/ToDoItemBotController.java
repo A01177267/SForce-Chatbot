@@ -25,8 +25,10 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.model.Proyecto;
+import com.springboot.MyTodoList.model.Tarea;
 import com.springboot.MyTodoList.service.ToDoItemService;
 import com.springboot.MyTodoList.service.ProyectoService;
+import com.springboot.MyTodoList.service.TareaService;
 import com.springboot.MyTodoList.util.BotCommands;
 import com.springboot.MyTodoList.util.BotHelper;
 import com.springboot.MyTodoList.util.BotLabels;
@@ -37,13 +39,22 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 	private static final Logger logger = LoggerFactory.getLogger(ToDoItemBotController.class);
 	private ToDoItemService toDoItemService;
 	private ProyectoService ProyectoService;
+    private TareaService TareaService;
 	private String botName;
 
-	private Map<Long, Boolean> creatingProjectState = new HashMap<>();
+	private Map<Long, CreateProjectState> creatingProjectState = new HashMap<>();
 	private Map<Long, UpdateProjectState> projectUpdateStates = new HashMap<>();
 	private Map<Long, Proyecto> selectedProjects = new HashMap<>();
 	private Map<Long, Boolean> viewingProjectState = new HashMap<>();
 	private Map<Long, Boolean> deletingProjectState = new HashMap<>();
+    private Map<Long, TaskCreationState> taskCreationStates = new HashMap<>();
+    private Map<Long, Long> selectedProjectMap = new HashMap<>();
+    private Map<Long, Boolean> creatingTaskState = new HashMap<>();
+
+    private enum CreateProjectState {
+        ENTERING_NAME,
+        SELECTING_STATUS
+    }
 
 	private enum UpdateProjectState {
 		SELECTING_PROJECT,
@@ -51,13 +62,19 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 		SELECTING_STATUS
 	}
 
+    private enum TaskCreationState {
+        SELECTING_PROJECT,
+        ENTERING_TASK_NAME
+    }
 
-	public ToDoItemBotController(String botToken, String botName, ToDoItemService toDoItemService, ProyectoService ProyectoService) {
+
+	public ToDoItemBotController(String botToken, String botName, ToDoItemService toDoItemService, ProyectoService ProyectoService, TareaService TareaService) {
 		super(botToken);
 		logger.info("Bot Token: " + botToken);
 		logger.info("Bot name: " + botName);
 		this.toDoItemService = toDoItemService;
 		this.ProyectoService = ProyectoService;
+        this.TareaService = TareaService;
 		this.botName = botName;
 	}
 
@@ -78,17 +95,65 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 				handleProjectDeletion(chatId, messageTextFromTelegram);
 			}
 
-			if (creatingProjectState.getOrDefault(chatId, false)) {
-				// Crear el proyecto con el nombre proporcionado
-				Proyecto nuevoProyecto = new Proyecto();
-				nuevoProyecto.setNombre(messageTextFromTelegram);
-				ProyectoService.crearProyecto(nuevoProyecto);
-
-				// Confirmación al usuario y limpiar el estado
-				BotHelper.sendMessageToTelegram(chatId, BotMessages.PROJECT_CREATED.getMessage(), this);
-				creatingProjectState.put(chatId, false);
-				return;
-			}
+            if (creatingProjectState.containsKey(chatId)) {
+                CreateProjectState state = creatingProjectState.get(chatId);
+                
+                if (state == CreateProjectState.ENTERING_NAME) {
+                    // Guardar temporalmente el nombre del proyecto
+                    Proyecto nuevoProyecto = new Proyecto();
+                    nuevoProyecto.setNombre(messageTextFromTelegram);
+                    selectedProjects.put(chatId, nuevoProyecto);
+                    
+                    // Pedir el estado del proyecto
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Por favor, selecciona el estado del proyecto:");
+                    
+                    ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                    List<KeyboardRow> keyboard = new ArrayList<>();
+                    
+                    KeyboardRow row = new KeyboardRow();
+                    row.add("Active");
+                    row.add("Inactive");
+                    keyboard.add(row);
+                    
+                    keyboardMarkup.setKeyboard(keyboard);
+                    keyboardMarkup.setResizeKeyboard(true);
+                    message.setReplyMarkup(keyboardMarkup);
+                    
+                    creatingProjectState.put(chatId, CreateProjectState.SELECTING_STATUS);
+                    
+                    try {
+                        execute(message);
+                    } catch (TelegramApiException e) {
+                        logger.error("Error al enviar mensaje", e);
+                    }
+                    return;
+                } 
+                else if (state == CreateProjectState.SELECTING_STATUS) {
+                    Proyecto nuevoProyecto = selectedProjects.get(chatId);
+                    
+                    if (messageTextFromTelegram.equals("Active") || messageTextFromTelegram.equals("Inactive")) {
+                        nuevoProyecto.setEstatus(messageTextFromTelegram);
+                        ProyectoService.crearProyecto(nuevoProyecto);
+                        
+                        BotHelper.sendMessageToTelegram(chatId, 
+                            "✅ Proyecto creado exitosamente:\n" +
+                            "Nombre: " + nuevoProyecto.getNombre() + "\n" +
+                            "Estado: " + nuevoProyecto.getEstatus(), 
+                            this);
+                            
+                        // Limpiar estados
+                        creatingProjectState.remove(chatId);
+                        selectedProjects.remove(chatId);
+                    } else {
+                        BotHelper.sendMessageToTelegram(chatId, 
+                            "❌ Estado inválido. Por favor, selecciona 'Active' o 'Inactive'.", 
+                            this);
+                    }
+                    return;
+                }
+            }
 				
 			if (messageTextFromTelegram.equals(BotCommands.START_COMMAND.getCommand())
 					|| messageTextFromTelegram.equals(BotLabels.SHOW_MAIN_SCREEN.getLabel())) {
@@ -100,28 +165,21 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 				ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
 				List<KeyboardRow> keyboard = new ArrayList<>();
 	
-				// Primera fila de botones
+                // fila para mostrar y agregar proyectos
 				KeyboardRow row = new KeyboardRow();
-				row.add(BotLabels.LIST_ALL_ITEMS.getLabel());
-				row.add(BotLabels.ADD_NEW_ITEM.getLabel());
-				keyboard.add(row);
-	
-				// Segunda fila de botones
-				row = new KeyboardRow();
-				row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
-				row.add(BotLabels.HIDE_MAIN_SCREEN.getLabel());
-				keyboard.add(row);
-	
-				// Tercera fila para mostrar y agregar proyectos
-				row = new KeyboardRow();
 				row.add(BotLabels.LIST_PROJECTS.getLabel());
 				row.add(BotLabels.ADD_PROJECT.getLabel());
 				keyboard.add(row);
 
-				// Cuarta fila para actualizar y eleminar proyectos
+				// fila para actualizar y eleminar proyectos
 				row = new KeyboardRow();
 				row.add(BotLabels.UPDATE_PROJECT.getLabel());
 				row.add(BotLabels.DELETE_PROJECT.getLabel());
+				keyboard.add(row);
+
+                // fila para agragar una tarea
+				row = new KeyboardRow();
+				row.add(BotLabels.ADD_TASK.getLabel());
 				keyboard.add(row);
 	
 				// Configuración del teclado
@@ -136,12 +194,10 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 	
 			} 
 			
-			else if (messageTextFromTelegram.equals(BotLabels.ADD_PROJECT.getLabel())) {
-				// Cambiar el estado para esperar el nombre del proyecto
-				creatingProjectState.put(chatId, true);
-				BotHelper.sendMessageToTelegram(chatId, "Por favor, envíame el nombre del nuevo proyecto.", this);
-
-			}
+            else if (messageTextFromTelegram.equals(BotLabels.ADD_PROJECT.getLabel())) {
+                creatingProjectState.put(chatId, CreateProjectState.ENTERING_NAME);
+                BotHelper.sendMessageToTelegram(chatId, "Por favor, envíame el nombre del nuevo proyecto.", this);
+            }
 
 			else if (messageTextFromTelegram.equals(BotLabels.UPDATE_PROJECT.getLabel())) {
 				startProjectUpdate(chatId);
@@ -150,6 +206,16 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 			else if (messageTextFromTelegram.equals(BotLabels.DELETE_PROJECT.getLabel())) {
 				startProjectDeletion(chatId);
 			}
+            else if (messageTextFromTelegram.equals(BotLabels.ADD_TASK.getLabel())) {
+                startTaskCreation(chatId);
+                return;
+            }
+
+            // Manejar los estados de creación de tarea
+            else if (taskCreationStates.containsKey(chatId)) {
+                handleTaskCreation(chatId, messageTextFromTelegram);
+                return;
+            }
 
 			else if (messageTextFromTelegram.equals("✅ Confirmar eliminación") && 
          selectedProjects.containsKey(chatId)) {
@@ -456,6 +522,214 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 		}
 	}
 
+	private void startTaskCreation(long chatId) {
+		List<Proyecto> proyectos = ProyectoService.findAll();
+		
+		if (proyectos.isEmpty()) {
+			SendMessage message = new SendMessage();
+			message.setChatId(chatId);
+			message.setText("No hay proyectos disponibles para crear tareas. Por favor, crea un proyecto primero.");
+			try {
+				execute(message);
+			} catch (TelegramApiException e) {
+				logger.error("Error al enviar mensaje", e);
+			}
+			return;
+		}
+	
+		SendMessage message = new SendMessage();
+		message.setChatId(chatId);
+		message.setText("Selecciona el proyecto al que deseas agregar la tarea:");
+	
+		ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+		List<KeyboardRow> keyboard = new ArrayList<>();
+	
+		// Botón para cancelar
+		KeyboardRow cancelRow = new KeyboardRow();
+		cancelRow.add("❌ Cancelar");
+		keyboard.add(cancelRow);
+	
+		// Crear botones para cada proyecto
+		for (Proyecto proyecto : proyectos) {
+			KeyboardRow row = new KeyboardRow();
+			row.add("📋 Proyecto: " + proyecto.getId() + " - " + proyecto.getNombre());
+			keyboard.add(row);
+		}
+	
+		keyboardMarkup.setKeyboard(keyboard);
+		keyboardMarkup.setResizeKeyboard(true);
+		message.setReplyMarkup(keyboardMarkup);
+	
+		taskCreationStates.put(chatId, TaskCreationState.SELECTING_PROJECT);
+		
+		try {
+			execute(message);
+		} catch (TelegramApiException e) {
+			logger.error("Error al enviar mensaje", e);
+		}
+	}
+	
+	// Método para manejar el proceso de creación de tarea
+	private void handleTaskCreation(long chatId, String messageText) {
+		if (messageText.equals("❌ Cancelar")) {
+			cancelTaskCreation(chatId);
+			return;
+		}
+	
+		TaskCreationState currentState = taskCreationStates.get(chatId);
+		
+		switch (currentState) {
+			case SELECTING_PROJECT:
+				if (messageText.startsWith("📋 Proyecto: ")) {
+					try {
+						String projectInfo = messageText.substring("📋 Proyecto: ".length());
+						Long projectId = Long.parseLong(projectInfo.split(" - ")[0]);
+						
+						// Verificar que el proyecto existe
+						ResponseEntity<Proyecto> proyectoResponse = ProyectoService.obtenerProyectoPorId(projectId);
+						if (proyectoResponse.getStatusCode() != HttpStatus.OK) {
+							sendErrorMessage(chatId, "Proyecto no encontrado. Por favor, selecciona un proyecto válido.");
+							return;
+						}
+						
+						selectedProjectMap.put(chatId, projectId);
+						
+						SendMessage message = new SendMessage();
+						message.setChatId(chatId);
+						message.setText("Por favor, ingresa la descripción de la tarea:");
+						
+						ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+						List<KeyboardRow> keyboard = new ArrayList<>();
+						KeyboardRow row = new KeyboardRow();
+						row.add("❌ Cancelar");
+						keyboard.add(row);
+						keyboardMarkup.setKeyboard(keyboard);
+						message.setReplyMarkup(keyboardMarkup);
+						
+						taskCreationStates.put(chatId, TaskCreationState.ENTERING_TASK_NAME);
+						
+						try {
+							execute(message);
+						} catch (TelegramApiException e) {
+							logger.error("Error al enviar mensaje", e);
+						}
+					} catch (Exception e) {
+						logger.error("Error al procesar la selección del proyecto", e);
+						sendErrorMessage(chatId, "Error al seleccionar el proyecto. Por favor, intenta de nuevo.");
+					}
+				}
+				break;
+	
+			case ENTERING_TASK_NAME:
+				Long projectId = selectedProjectMap.get(chatId);
+				if (projectId != null) {
+					try {
+						// Crear la tarea con los campos mínimos necesarios
+						Tarea nuevaTarea = new Tarea();
+						nuevaTarea.setDescripcion(messageText);
+						nuevaTarea.setEstatus("In Progress"); // Estado inicial
+						nuevaTarea.setTiempoEstimado(0.0f); // Valores por defecto
+						nuevaTarea.setTiempoReal(0.0f);
+						nuevaTarea.setPuntuacionCalidad(0);
+						nuevaTarea.setEficienciaTarea(0.0f);
+						nuevaTarea.setProductividadTarea(0.0f);
+						
+						// Crear la tarea usando el servicio
+						Tarea tareaCreada = TareaService.crearTarea(projectId, nuevaTarea);
+						
+						if (tareaCreada != null && tareaCreada.getId() != null) {
+							// Mensaje de confirmación
+							StringBuilder confirmationText = new StringBuilder();
+							confirmationText.append("✅ Tarea creada exitosamente:\n\n");
+							confirmationText.append("📝 Descripción: ").append(tareaCreada.getDescripcion()).append("\n");
+							confirmationText.append("📊 Estado: ").append(tareaCreada.getEstatus()).append("\n");
+							confirmationText.append("🆔 ID: ").append(tareaCreada.getId());
+							
+							SendMessage confirmationMessage = new SendMessage();
+							confirmationMessage.setChatId(chatId);
+							confirmationMessage.setText(confirmationText.toString());
+							
+							ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+							List<KeyboardRow> keyboard = new ArrayList<>();
+							KeyboardRow row = new KeyboardRow();
+							row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+							keyboard.add(row);
+							keyboardMarkup.setKeyboard(keyboard);
+							keyboardMarkup.setResizeKeyboard(true);
+							confirmationMessage.setReplyMarkup(keyboardMarkup);
+							
+							execute(confirmationMessage);
+						} else {
+							throw new RuntimeException("No se pudo crear la tarea");
+						}
+						
+						// Limpiar estados
+						cleanupTaskCreationStates(chatId);
+					} catch (Exception e) {
+						logger.error("Error al crear la tarea: " + e.getMessage(), e);
+						sendErrorMessage(chatId, "Error al crear la tarea. Por favor, verifica que el proyecto existe e intenta de nuevo.");
+						cleanupTaskCreationStates(chatId);
+					}
+				} else {
+					sendErrorMessage(chatId, "No se encontró el proyecto seleccionado. Por favor, intenta de nuevo.");
+					cleanupTaskCreationStates(chatId);
+				}
+				break;
+		}
+	}
+	
+	// Método para cancelar la creación de tarea
+	private void cancelTaskCreation(long chatId) {
+		SendMessage message = new SendMessage();
+		message.setChatId(chatId);
+		message.setText("Operación cancelada");
+		
+		ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+		List<KeyboardRow> keyboard = new ArrayList<>();
+		KeyboardRow row = new KeyboardRow();
+		row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+		keyboard.add(row);
+		keyboardMarkup.setKeyboard(keyboard);
+		keyboardMarkup.setResizeKeyboard(true);
+		message.setReplyMarkup(keyboardMarkup);
+		
+		try {
+			execute(message);
+		} catch (TelegramApiException e) {
+			logger.error("Error al enviar mensaje", e);
+		}
+		
+		cleanupTaskCreationStates(chatId);
+	}
+	
+	// Método para limpiar los estados de creación de tarea
+	private void cleanupTaskCreationStates(long chatId) {
+		taskCreationStates.remove(chatId);
+		selectedProjectMap.remove(chatId);
+	}
+	
+	// Agregar este método para manejar mensajes de error
+	private void sendErrorMessage(long chatId, String errorMessage) {
+		SendMessage message = new SendMessage();
+		message.setChatId(chatId);
+		message.setText("❌ " + errorMessage);
+		
+		ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+		List<KeyboardRow> keyboard = new ArrayList<>();
+		KeyboardRow row = new KeyboardRow();
+		row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+		keyboard.add(row);
+		keyboardMarkup.setKeyboard(keyboard);
+		keyboardMarkup.setResizeKeyboard(true);
+		message.setReplyMarkup(keyboardMarkup);
+		
+		try {
+			execute(message);
+		} catch (TelegramApiException e) {
+			logger.error("Error al enviar mensaje de error", e);
+		}
+	}
+
 	private void startProjectUpdate(long chatId) {
 		List<Proyecto> proyectos = ProyectoService.findAll();
 		
@@ -725,26 +999,6 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 		} catch (Exception e) {
 			logger.error("Error al procesar la eliminación del proyecto", e);
 			sendErrorMessage(chatId, "Hubo un error al procesar tu solicitud. Por favor, intenta de nuevo.");
-		}
-	}
-
-	private void sendErrorMessage(long chatId, String errorMessage) {
-		SendMessage message = new SendMessage();
-		message.setChatId(chatId);
-		message.setText("❌ " + errorMessage);
-		
-		ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-		List<KeyboardRow> keyboard = new ArrayList<>();
-		KeyboardRow row = new KeyboardRow();
-		row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
-		keyboard.add(row);
-		keyboardMarkup.setKeyboard(keyboard);
-		message.setReplyMarkup(keyboardMarkup);
-		
-		try {
-			execute(message);
-		} catch (TelegramApiException e) {
-			logger.error("Error al enviar mensaje de error", e);
 		}
 	}
 
