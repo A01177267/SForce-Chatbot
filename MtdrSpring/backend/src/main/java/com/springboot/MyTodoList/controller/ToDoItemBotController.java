@@ -50,6 +50,9 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     private Map<Long, TaskCreationState> taskCreationStates = new HashMap<>();
     private Map<Long, Long> selectedProjectMap = new HashMap<>();
     private Map<Long, Boolean> creatingTaskState = new HashMap<>();
+	private Map<Long, Boolean> viewingTasksState = new HashMap<>();
+	private Map<Long, Boolean> deletingTaskState = new HashMap<>();
+	private Map<Long, Long> selectedTaskMap = new HashMap<>();
 
     private enum CreateProjectState {
         ENTERING_NAME,
@@ -94,6 +97,38 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 			else if (deletingProjectState.getOrDefault(chatId, false) && messageTextFromTelegram.startsWith("📋 Proyecto: ")) {
 				handleProjectDeletion(chatId, messageTextFromTelegram);
 			}
+
+			else if (viewingTasksState.getOrDefault(chatId, false) && 
+         messageTextFromTelegram.startsWith("📋 Proyecto: ")) {
+    String projectInfo = messageTextFromTelegram.substring("📋 Proyecto: ".length());
+    Long projectId = Long.parseLong(projectInfo.split(" - ")[0]);
+    showProjectTasks(chatId, projectId);
+    return;
+}
+else if (deletingTaskState.getOrDefault(chatId, false)) {
+    if (messageTextFromTelegram.startsWith("📋 Proyecto: ")) {
+        String projectInfo = messageTextFromTelegram.substring("📋 Proyecto: ".length());
+        Long projectId = Long.parseLong(projectInfo.split(" - ")[0]);
+        showTasksForDeletion(chatId, projectId);
+    } else if (messageTextFromTelegram.startsWith("🗑️ Tarea: ")) {
+        handleTaskDeletion(chatId, messageTextFromTelegram);
+    } else if (messageTextFromTelegram.equals("✅ Confirmar eliminación")) {
+        confirmTaskDeletion(chatId);
+    } else if (messageTextFromTelegram.equals("❌ Cancelar")) {
+        cleanupTaskDeletionStates(chatId);
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId);
+        message.setText("Operación cancelada");
+        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+        List<KeyboardRow> keyboard = new ArrayList<>();
+        KeyboardRow row = new KeyboardRow();
+        row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+        keyboard.add(row);
+        keyboardMarkup.setKeyboard(keyboard);
+        message.setReplyMarkup(keyboardMarkup);
+    }
+    return;
+}
 
             if (creatingProjectState.containsKey(chatId)) {
                 CreateProjectState state = creatingProjectState.get(chatId);
@@ -180,6 +215,8 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 // fila para agragar una tarea
 				row = new KeyboardRow();
 				row.add(BotLabels.ADD_TASK.getLabel());
+				row.add(BotLabels.LIST_TASKS.getLabel());
+				row.add(BotLabels.DELETE_TASK.getLabel());
 				keyboard.add(row);
 	
 				// Configuración del teclado
@@ -210,6 +247,14 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 startTaskCreation(chatId);
                 return;
             }
+			else if (messageTextFromTelegram.equals(BotLabels.LIST_TASKS.getLabel())) {
+				startTaskListing(chatId);
+				return;
+			}
+			else if (messageTextFromTelegram.equals(BotLabels.DELETE_TASK.getLabel())) {
+				startTaskDeletion(chatId);
+				return;
+			}
 
             // Manejar los estados de creación de tarea
             else if (taskCreationStates.containsKey(chatId)) {
@@ -520,6 +565,278 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 
 			}
 		}
+	}
+
+	private void startTaskListing(long chatId) {
+		List<Proyecto> proyectos = ProyectoService.findAll();
+		
+		if (proyectos.isEmpty()) {
+			SendMessage message = new SendMessage();
+			message.setChatId(chatId);
+			message.setText("No hay proyectos disponibles para mostrar tareas.");
+			try {
+				execute(message);
+			} catch (TelegramApiException e) {
+				logger.error("Error al enviar mensaje", e);
+			}
+			return;
+		}
+	
+		SendMessage message = new SendMessage();
+		message.setChatId(chatId);
+		message.setText("Selecciona el proyecto para ver sus tareas:");
+	
+		ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+		List<KeyboardRow> keyboard = new ArrayList<>();
+	
+		// Botón para volver al menú principal
+		KeyboardRow mainMenuRow = new KeyboardRow();
+		mainMenuRow.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+		keyboard.add(mainMenuRow);
+	
+		// Crear botones para cada proyecto
+		for (Proyecto proyecto : proyectos) {
+			KeyboardRow row = new KeyboardRow();
+			row.add("📋 Proyecto: " + proyecto.getId() + " - " + proyecto.getNombre());
+			keyboard.add(row);
+		}
+	
+		keyboardMarkup.setKeyboard(keyboard);
+		keyboardMarkup.setResizeKeyboard(true);
+		message.setReplyMarkup(keyboardMarkup);
+	
+		viewingTasksState.put(chatId, true);
+	
+		try {
+			execute(message);
+		} catch (TelegramApiException e) {
+			logger.error("Error al enviar mensaje", e);
+		}
+	}
+	
+	private void showProjectTasks(long chatId, Long projectId) {
+		try {
+			ResponseEntity<Proyecto> response = ProyectoService.obtenerProyectoPorId(projectId);
+			
+			if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+				Proyecto proyecto = response.getBody();
+				List<Tarea> tareas = proyecto.getTareas();
+	
+				StringBuilder messageText = new StringBuilder();
+				messageText.append("📋 *Tareas del Proyecto: ").append(proyecto.getNombre()).append("*\n\n");
+	
+				if (tareas == null || tareas.isEmpty()) {
+					messageText.append("No hay tareas en este proyecto.");
+				} else {
+					for (Tarea tarea : tareas) {
+						messageText.append("🔹 *ID:* ").append(tarea.getId()).append("\n");
+						messageText.append("📝 *Descripción:* ").append(tarea.getDescripcion()).append("\n");
+						messageText.append("📊 *Estado:* ").append(tarea.getEstatus()).append("\n");
+						if (tarea.getTiempoEstimado() != null && tarea.getTiempoEstimado() > 0) {
+							messageText.append("⏱ *Tiempo Estimado:* ").append(tarea.getTiempoEstimado()).append("h\n");
+						}
+						messageText.append("\n");
+					}
+				}
+	
+				SendMessage message = new SendMessage();
+				message.setChatId(chatId);
+				message.setText(messageText.toString());
+				message.setParseMode("Markdown");
+	
+				// Añadir botón para volver al menú principal
+				ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+				List<KeyboardRow> keyboard = new ArrayList<>();
+				KeyboardRow row = new KeyboardRow();
+				row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+				keyboard.add(row);
+				keyboardMarkup.setKeyboard(keyboard);
+				keyboardMarkup.setResizeKeyboard(true);
+				message.setReplyMarkup(keyboardMarkup);
+	
+				execute(message);
+				viewingTasksState.remove(chatId);
+			}
+		} catch (Exception e) {
+			logger.error("Error al mostrar las tareas del proyecto", e);
+			sendErrorMessage(chatId, "Error al obtener las tareas del proyecto.");
+		}
+	}
+	
+	// Métodos para el manejo de eliminación de tareas
+	private void startTaskDeletion(long chatId) {
+		List<Proyecto> proyectos = ProyectoService.findAll();
+		
+		if (proyectos.isEmpty()) {
+			SendMessage message = new SendMessage();
+			message.setChatId(chatId);
+			message.setText("No hay proyectos disponibles.");
+			try {
+				execute(message);
+			} catch (TelegramApiException e) {
+				logger.error("Error al enviar mensaje", e);
+			}
+			return;
+		}
+	
+		SendMessage message = new SendMessage();
+		message.setChatId(chatId);
+		message.setText("Selecciona el proyecto de la tarea que deseas eliminar:");
+	
+		ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+		List<KeyboardRow> keyboard = new ArrayList<>();
+	
+		// Botón para cancelar
+		KeyboardRow cancelRow = new KeyboardRow();
+		cancelRow.add("❌ Cancelar");
+		keyboard.add(cancelRow);
+	
+		// Crear botones para cada proyecto
+		for (Proyecto proyecto : proyectos) {
+			KeyboardRow row = new KeyboardRow();
+			row.add("📋 Proyecto: " + proyecto.getId() + " - " + proyecto.getNombre());
+			keyboard.add(row);
+		}
+	
+		keyboardMarkup.setKeyboard(keyboard);
+		keyboardMarkup.setResizeKeyboard(true);
+		message.setReplyMarkup(keyboardMarkup);
+	
+		deletingTaskState.put(chatId, true);
+	
+		try {
+			execute(message);
+		} catch (TelegramApiException e) {
+			logger.error("Error al enviar mensaje", e);
+		}
+	}
+	
+	private void showTasksForDeletion(long chatId, Long projectId) {
+		try {
+			ResponseEntity<Proyecto> response = ProyectoService.obtenerProyectoPorId(projectId);
+			
+			if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+				Proyecto proyecto = response.getBody();
+				List<Tarea> tareas = proyecto.getTareas();
+	
+				if (tareas == null || tareas.isEmpty()) {
+					SendMessage message = new SendMessage();
+					message.setChatId(chatId);
+					message.setText("No hay tareas en este proyecto para eliminar.");
+					
+					ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+					List<KeyboardRow> keyboard = new ArrayList<>();
+					KeyboardRow row = new KeyboardRow();
+					row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+					keyboard.add(row);
+					keyboardMarkup.setKeyboard(keyboard);
+					message.setReplyMarkup(keyboardMarkup);
+					
+					execute(message);
+					deletingTaskState.remove(chatId);
+					return;
+				}
+	
+				SendMessage message = new SendMessage();
+				message.setChatId(chatId);
+				message.setText("Selecciona la tarea que deseas eliminar:");
+	
+				ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+				List<KeyboardRow> keyboard = new ArrayList<>();
+	
+				// Botón para cancelar
+				KeyboardRow cancelRow = new KeyboardRow();
+				cancelRow.add("❌ Cancelar");
+				keyboard.add(cancelRow);
+	
+				// Crear botón para cada tarea
+				for (Tarea tarea : tareas) {
+					KeyboardRow row = new KeyboardRow();
+					row.add("🗑️ Tarea: " + tarea.getId() + " - " + tarea.getDescripcion());
+					keyboard.add(row);
+				}
+	
+				keyboardMarkup.setKeyboard(keyboard);
+				keyboardMarkup.setResizeKeyboard(true);
+				message.setReplyMarkup(keyboardMarkup);
+	
+				execute(message);
+			}
+		} catch (Exception e) {
+			logger.error("Error al mostrar las tareas para eliminar", e);
+			sendErrorMessage(chatId, "Error al obtener las tareas del proyecto.");
+			deletingTaskState.remove(chatId);
+		}
+	}
+	
+	private void handleTaskDeletion(long chatId, String messageText) {
+		try {
+			// Extraer el ID de la tarea del mensaje
+			String taskInfo = messageText.substring("🗑️ Tarea: ".length());
+			Long taskId = Long.parseLong(taskInfo.split(" - ")[0]);
+	
+			// Confirmar con el usuario
+			SendMessage confirmMessage = new SendMessage();
+			confirmMessage.setChatId(chatId);
+			confirmMessage.setText("¿Estás seguro de que deseas eliminar esta tarea?\n\n" +
+								 "Para confirmar, selecciona una opción:");
+	
+			ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+			List<KeyboardRow> keyboard = new ArrayList<>();
+			
+			KeyboardRow row = new KeyboardRow();
+			row.add("✅ Confirmar eliminación");
+			row.add("❌ Cancelar");
+			keyboard.add(row);
+	
+			keyboardMarkup.setKeyboard(keyboard);
+			keyboardMarkup.setResizeKeyboard(true);
+			confirmMessage.setReplyMarkup(keyboardMarkup);
+	
+			selectedTaskMap.put(chatId, taskId);
+	
+			execute(confirmMessage);
+		} catch (Exception e) {
+			logger.error("Error al procesar la eliminación de la tarea", e);
+			sendErrorMessage(chatId, "Error al procesar la eliminación. Por favor, intenta de nuevo.");
+			cleanupTaskDeletionStates(chatId);
+		}
+	}
+	
+	private void confirmTaskDeletion(long chatId) {
+		Long taskId = selectedTaskMap.get(chatId);
+		if (taskId != null) {
+			try {
+				System.out.println("Borrando" + taskId);
+				boolean deleted = TareaService.eliminarTarea(taskId);
+				if (deleted) {
+					SendMessage message = new SendMessage();
+					message.setChatId(chatId);
+					message.setText("✅ Tarea eliminada exitosamente.");
+					
+					ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+					List<KeyboardRow> keyboard = new ArrayList<>();
+					KeyboardRow row = new KeyboardRow();
+					row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+					keyboard.add(row);
+					keyboardMarkup.setKeyboard(keyboard);
+					message.setReplyMarkup(keyboardMarkup);
+					
+					execute(message);
+				} else {
+					sendErrorMessage(chatId, "No se pudo eliminar la tarea. Por favor, intenta de nuevo.");
+				}
+			} catch (Exception e) {
+				logger.error("Error al eliminar la tarea", e);
+				sendErrorMessage(chatId, "Error al eliminar la tarea. Por favor, intenta de nuevo.");
+			}
+		}
+		cleanupTaskDeletionStates(chatId);
+	}
+	
+	private void cleanupTaskDeletionStates(long chatId) {
+		deletingTaskState.remove(chatId);
+		selectedTaskMap.remove(chatId);
 	}
 
 	private void startTaskCreation(long chatId) {
@@ -1057,7 +1374,4 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 			return new ResponseEntity<>(flag, HttpStatus.NOT_FOUND);
 		}
 	}
-
-
-
 }

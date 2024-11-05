@@ -68,7 +68,9 @@ public class TareaService {
     // Delete a task
     public boolean eliminarTarea(Long id) {
         if (tareaRepository.existsById(id)) {
+            System.out.println("deleting id " + id);
             tareaRepository.deleteById(id);
+            System.out.println("deleted id " + id);
             return true;
         }
         return false;

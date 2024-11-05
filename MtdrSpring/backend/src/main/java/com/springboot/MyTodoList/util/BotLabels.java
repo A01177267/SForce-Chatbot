@@ -16,6 +16,7 @@ public enum BotLabels {
 	UPDATE_PROJECT("Update Project"),
 	DELETE_PROJECT("Delete Project"),
 	LIST_TASKS("List Tasks"),
+	DELETE_TASK("Delete Task"),
 	ADD_TASK("Add Task"); 
 
 	private String label;
