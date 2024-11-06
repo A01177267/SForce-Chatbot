@@ -53,7 +53,7 @@ public class TareaService {
     }
 
     // Update an existing task
-    public Optional<Tarea> actualizarTarea(Long id, Tarea tarea) {
+    public Tarea actualizarTarea(Long id, Tarea tarea) {
         return tareaRepository.findById(id)
             .map(tareaExistente -> {
                 tareaExistente.setDescripcion(tarea.getDescripcion());
@@ -65,8 +65,9 @@ public class TareaService {
                 tareaExistente.setEficienciaTarea(tarea.getEficienciaTarea());
                 tareaExistente.setProductividadTarea(tarea.getProductividadTarea());
                 return tareaRepository.save(tareaExistente);
-            });
-    }
+            })
+            .orElse(null);
+        }
 
     // Delete a task
     public boolean eliminarTarea(Long id) {
@@ -78,7 +79,7 @@ public class TareaService {
     }
 
     // Get a task by ID
-    public Optional<Tarea> obtenerTareaPorId(Long id) {
-        return tareaRepository.findById(id);
+    public Tarea obtenerTareaPorId(Long id) {
+        return tareaRepository.findById(id).orElse(null);
     }
 }

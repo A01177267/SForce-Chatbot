@@ -3,9 +3,9 @@ package com.springboot.MyTodoList.util;
 public enum BotMessages {
 
     HELLO_MYTODO_BOT(
-        "Hello! I'm MyTodoList Bot! Please choose an option below or type a command:\n- /todolist to manage todo items\n- /listprojects to see all projects\n- /listtasks to see all tasks"),
+        "Hello! I'm OracleSForce Bot! Select an option"),
     BOT_REGISTERED_STARTED("Bot registered and started successfully!"),
-    ITEM_DONE("Item marked as done! Select /todolist to return to the list of todo items, or /start to go to the main screen."),
+    ITEM_DONE("Item marked as done!"),
     ITEM_UNDONE("Item marked as undone! Select /todolist to return to the list of todo items, or /start to go to the main screen."),
     ITEM_DELETED("Item deleted! Select /todolist to return to the list of todo items, or /start to go to the main screen."),
     TYPE_NEW_TODO_ITEM("Type a new todo item below and press the send button (blue arrow) on the right-hand side."),

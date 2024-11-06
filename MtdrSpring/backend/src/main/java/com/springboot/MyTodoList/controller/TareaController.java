@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import javax.validation.Valid;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import com.springboot.MyTodoList.dto.TareaDTO;
 import com.springboot.MyTodoList.model.Proyecto;
@@ -39,17 +40,27 @@ public class TareaController {
     // Get a single task by ID
     @GetMapping("/{id}")
     public ResponseEntity<Tarea> getTaskById(@PathVariable Long id) {
-        Optional<Tarea> tarea = tareaService.obtenerTareaPorId(id);
-        return tarea.map(ResponseEntity::ok)
-                    .orElse(ResponseEntity.notFound().build());
+        try {
+            Tarea tarea = tareaService.obtenerTareaPorId(id);
+            return new ResponseEntity<>(tarea, HttpStatus.OK);
+        }catch (NoSuchElementException e) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
     }
 
     // Update an existing task
     @PutMapping("/{id}")
     public ResponseEntity<Tarea> updateTask(@PathVariable Long id, @Valid @RequestBody Tarea tarea) {
-        return tareaService.actualizarTarea(id, tarea)
-                           .map(updatedTarea -> ResponseEntity.ok(updatedTarea))
-                           .orElse(ResponseEntity.notFound().build());
+        try {
+            Tarea updatedTarea = tareaService.actualizarTarea(id, tarea);
+            if (updatedTarea != null) {
+                return new ResponseEntity<>(updatedTarea, HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+        } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     // Delete a task
