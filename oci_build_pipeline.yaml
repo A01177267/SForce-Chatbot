@@ -12,7 +12,7 @@ env:
 
 steps:
   - type: Command
-    name: "Build"
+    name: "Undeploy"
     command:  cd MtdrSpring;
       (cd backend;source env.sh)
       (cd backend;source undeploy.sh)
