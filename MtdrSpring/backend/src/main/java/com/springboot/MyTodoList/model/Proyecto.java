@@ -27,7 +27,7 @@ public class Proyecto {
     @Column(name = "END_DATE") // Match the column name for 'END_DATE'
     private Date fechaFin;
 
-    @OneToMany(mappedBy = "proyecto", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "proyecto", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JsonManagedReference
     private List<Tarea> tareas; // Configuración para manejo de las tareas como parte del proyecto
 

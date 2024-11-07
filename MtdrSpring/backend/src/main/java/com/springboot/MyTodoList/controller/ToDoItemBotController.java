@@ -49,7 +49,6 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 	private Map<Long, Boolean> deletingProjectState = new HashMap<>();
     private Map<Long, TaskCreationState> taskCreationStates = new HashMap<>();
     private Map<Long, Long> selectedProjectMap = new HashMap<>();
-    private Map<Long, Boolean> creatingTaskState = new HashMap<>();
 	private Map<Long, Boolean> viewingTasksState = new HashMap<>();
 	private Map<Long, Boolean> deletingTaskState = new HashMap<>();
 	private Map<Long, Long> selectedTaskMap = new HashMap<>();
@@ -58,19 +57,15 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         ENTERING_NAME,
         SELECTING_STATUS
     }
-
 	private enum UpdateProjectState {
 		SELECTING_PROJECT,
 		ENTERING_NAME,
 		SELECTING_STATUS
 	}
-
     private enum TaskCreationState {
         SELECTING_PROJECT,
         ENTERING_TASK_NAME
     }
-
-
 	public ToDoItemBotController(String botToken, String botName, ToDoItemService toDoItemService, ProyectoService ProyectoService, TareaService TareaService) {
 		super(botToken);
 		logger.info("Bot Token: " + botToken);
@@ -83,54 +78,49 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
 	@Override
 	public void onUpdateReceived(Update update) {
-	
 		if (update.hasMessage() && update.getMessage().hasText()) {
-	
 			String messageTextFromTelegram = update.getMessage().getText();
 			long chatId = update.getMessage().getChatId();
-
 			if (projectUpdateStates.containsKey(chatId)) {
 				handleProjectUpdate(chatId, messageTextFromTelegram);
 				return;
 			}
-
 			else if (deletingProjectState.getOrDefault(chatId, false) && messageTextFromTelegram.startsWith("📋 Proyecto: ")) {
 				handleProjectDeletion(chatId, messageTextFromTelegram);
 			}
 
 			else if (viewingTasksState.getOrDefault(chatId, false) && 
-         messageTextFromTelegram.startsWith("📋 Proyecto: ")) {
-    String projectInfo = messageTextFromTelegram.substring("📋 Proyecto: ".length());
-    Long projectId = Long.parseLong(projectInfo.split(" - ")[0]);
-    showProjectTasks(chatId, projectId);
-    return;
-}
-else if (deletingTaskState.getOrDefault(chatId, false)) {
-    if (messageTextFromTelegram.startsWith("📋 Proyecto: ")) {
-        String projectInfo = messageTextFromTelegram.substring("📋 Proyecto: ".length());
-        Long projectId = Long.parseLong(projectInfo.split(" - ")[0]);
-        showTasksForDeletion(chatId, projectId);
-    } else if (messageTextFromTelegram.startsWith("🗑️ Tarea: ")) {
-        handleTaskDeletion(chatId, messageTextFromTelegram);
-    } else if (messageTextFromTelegram.equals("✅ Confirmar eliminación")) {
-        confirmTaskDeletion(chatId);
-    } else if (messageTextFromTelegram.equals("❌ Cancelar")) {
-        cleanupTaskDeletionStates(chatId);
-        SendMessage message = new SendMessage();
-        message.setChatId(chatId);
-        message.setText("Operación cancelada");
-        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-        List<KeyboardRow> keyboard = new ArrayList<>();
-        KeyboardRow row = new KeyboardRow();
-        row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
-        keyboard.add(row);
-        keyboardMarkup.setKeyboard(keyboard);
-        message.setReplyMarkup(keyboardMarkup);
-    }
-    return;
-}
-
-            if (creatingProjectState.containsKey(chatId)) {
+         		messageTextFromTelegram.startsWith("📋 Proyecto: ")) {
+				String projectInfo = messageTextFromTelegram.substring("📋 Proyecto: ".length());
+				Long projectId = Long.parseLong(projectInfo.split(" - ")[0]);
+				showProjectTasks(chatId, projectId);
+				return;
+			}
+			else if (deletingTaskState.getOrDefault(chatId, false)) {
+				if (messageTextFromTelegram.startsWith("📋 Proyecto: ")) {
+					String projectInfo = messageTextFromTelegram.substring("📋 Proyecto: ".length());
+					Long projectId = Long.parseLong(projectInfo.split(" - ")[0]);
+					showTasksForDeletion(chatId, projectId);
+				} else if (messageTextFromTelegram.startsWith("🗑️ Tarea: ")) {
+					handleTaskDeletion(chatId, messageTextFromTelegram);
+				} else if (messageTextFromTelegram.equals("✅ Confirmar eliminación")) {
+					confirmTaskDeletion(chatId);
+				} else if (messageTextFromTelegram.equals("❌ Cancelar")) {
+					cleanupTaskDeletionStates(chatId);
+					SendMessage message = new SendMessage();
+					message.setChatId(chatId);
+					message.setText("Operación cancelada");
+					ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+					List<KeyboardRow> keyboard = new ArrayList<>();
+					KeyboardRow row = new KeyboardRow();
+					row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+					keyboard.add(row);
+					keyboardMarkup.setKeyboard(keyboard);
+					message.setReplyMarkup(keyboardMarkup);
+				}
+				return;
+			}
+            else if (creatingProjectState.containsKey(chatId)) {
                 CreateProjectState state = creatingProjectState.get(chatId);
                 
                 if (state == CreateProjectState.ENTERING_NAME) {
@@ -190,7 +180,7 @@ else if (deletingTaskState.getOrDefault(chatId, false)) {
                 }
             }
 				
-			if (messageTextFromTelegram.equals(BotCommands.START_COMMAND.getCommand())
+			else if (messageTextFromTelegram.equals(BotCommands.START_COMMAND.getCommand())
 					|| messageTextFromTelegram.equals(BotLabels.SHOW_MAIN_SCREEN.getLabel())) {
 	
 				SendMessage messageToTelegram = new SendMessage();
@@ -255,66 +245,64 @@ else if (deletingTaskState.getOrDefault(chatId, false)) {
 				startTaskDeletion(chatId);
 				return;
 			}
-
             // Manejar los estados de creación de tarea
             else if (taskCreationStates.containsKey(chatId)) {
                 handleTaskCreation(chatId, messageTextFromTelegram);
                 return;
             }
-
 			else if (messageTextFromTelegram.equals("✅ Confirmar eliminación") && 
-         selectedProjects.containsKey(chatId)) {
-    Proyecto proyectoAEliminar = selectedProjects.get(chatId);
-    try {
-        ProyectoService.eliminarProyecto(proyectoAEliminar.getId());
-        
-        SendMessage successMessage = new SendMessage();
-        successMessage.setChatId(chatId);
-        successMessage.setText("✅ El proyecto '" + proyectoAEliminar.getNombre() + "' ha sido eliminado exitosamente.");
-        
-        // Volver al menú principal
-        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-        List<KeyboardRow> keyboard = new ArrayList<>();
-        KeyboardRow row = new KeyboardRow();
-        row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
-        keyboard.add(row);
-        keyboardMarkup.setKeyboard(keyboard);
-        successMessage.setReplyMarkup(keyboardMarkup);
-        
-        execute(successMessage);
-        
-        // Limpiar estados
-        deletingProjectState.remove(chatId);
-        selectedProjects.remove(chatId);
-    } catch (Exception e) {
-        logger.error("Error al eliminar el proyecto", e);
-        sendErrorMessage(chatId, "Hubo un error al eliminar el proyecto. Por favor, intenta de nuevo.");
-    }
-}
-else if (messageTextFromTelegram.equals("❌ Cancelar") && 
-         selectedProjects.containsKey(chatId)) {
-    // Cancelar la eliminación
-    SendMessage cancelMessage = new SendMessage();
-    cancelMessage.setChatId(chatId);
-    cancelMessage.setText("Operación cancelada. El proyecto no ha sido eliminado.");
-    
-    ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-    List<KeyboardRow> keyboard = new ArrayList<>();
-    KeyboardRow row = new KeyboardRow();
-    row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
-    keyboard.add(row);
-    keyboardMarkup.setKeyboard(keyboard);
-    cancelMessage.setReplyMarkup(keyboardMarkup);
-    
-    try {
-        execute(cancelMessage);
-        // Limpiar estados
-        deletingProjectState.remove(chatId);
-        selectedProjects.remove(chatId);
-    } catch (TelegramApiException e) {
-        logger.error("Error al enviar mensaje de cancelación", e);
-    }
-}
+				selectedProjects.containsKey(chatId)) {
+				Proyecto proyectoAEliminar = selectedProjects.get(chatId);
+				try {
+					ProyectoService.eliminarProyecto(proyectoAEliminar.getId());
+					
+					SendMessage successMessage = new SendMessage();
+					successMessage.setChatId(chatId);
+					successMessage.setText("✅ El proyecto '" + proyectoAEliminar.getNombre() + "' ha sido eliminado exitosamente.");
+					
+					// Volver al menú principal
+					ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+					List<KeyboardRow> keyboard = new ArrayList<>();
+					KeyboardRow row = new KeyboardRow();
+					row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+					keyboard.add(row);
+					keyboardMarkup.setKeyboard(keyboard);
+					successMessage.setReplyMarkup(keyboardMarkup);
+					
+					execute(successMessage);
+					
+					// Limpiar estados
+					deletingProjectState.remove(chatId);
+					selectedProjects.remove(chatId);
+				} catch (Exception e) {
+					logger.error("Error al eliminar el proyecto", e);
+					sendErrorMessage(chatId, "Hubo un error al eliminar el proyecto. Por favor, intenta de nuevo.");
+				}
+			}
+			else if (messageTextFromTelegram.equals("❌ Cancelar") && 
+					selectedProjects.containsKey(chatId)) {
+				// Cancelar la eliminación
+				SendMessage cancelMessage = new SendMessage();
+				cancelMessage.setChatId(chatId);
+				cancelMessage.setText("Operación cancelada. El proyecto no ha sido eliminado.");
+				
+				ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+				List<KeyboardRow> keyboard = new ArrayList<>();
+				KeyboardRow row = new KeyboardRow();
+				row.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+				keyboard.add(row);
+				keyboardMarkup.setKeyboard(keyboard);
+				cancelMessage.setReplyMarkup(keyboardMarkup);
+				
+				try {
+					execute(cancelMessage);
+					// Limpiar estados
+					deletingProjectState.remove(chatId);
+					selectedProjects.remove(chatId);
+				} catch (TelegramApiException e) {
+					logger.error("Error al enviar mensaje de cancelación", e);
+				}
+			}
 			
 			else if (messageTextFromTelegram.equals(BotLabels.LIST_PROJECTS.getLabel())) {
 				// Obtener la lista de proyectos
@@ -337,216 +325,106 @@ else if (messageTextFromTelegram.equals("❌ Cancelar") &&
 					keyboard.add(row);
 				}
     
-    keyboardMarkup.setKeyboard(keyboard);
-    keyboardMarkup.setResizeKeyboard(true);
-    
-    SendMessage messageToTelegram = new SendMessage();
-    messageToTelegram.setChatId(chatId);
-    messageToTelegram.setText("Selecciona un proyecto para ver sus detalles:");
-    messageToTelegram.setReplyMarkup(keyboardMarkup);
-    
-    // Activar el estado de visualización de proyectos
-    viewingProjectState.put(chatId, true);
-    
-    try {
-        execute(messageToTelegram);
-    } catch (TelegramApiException e) {
-        logger.error(e.getLocalizedMessage(), e);
-    }
-}
-
-// Agregar el nuevo else if para manejar la selección de un proyecto
-else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProjectState.getOrDefault(chatId, false)) {
-    // Extraer el ID del proyecto del mensaje
-    String projectInfo = messageTextFromTelegram.substring("📋 Proyecto: ".length());
-    Long projectId = Long.parseLong(projectInfo.split(" - ")[0]);
-    
-    // Obtener el proyecto
-    ResponseEntity<Proyecto> response = ProyectoService.obtenerProyectoPorId(projectId);
-    
-    if (response.getStatusCode() == HttpStatus.OK) {
-        Proyecto proyecto = response.getBody();
-        
-        // Construir el mensaje con la información detallada
-        StringBuilder infoMessage = new StringBuilder();
-        infoMessage.append("📋 *Detalles del Proyecto*\n\n");
-        infoMessage.append("🆔 *ID:* ").append(proyecto.getId()).append("\n");
-        infoMessage.append("📝 *Nombre:* ").append(proyecto.getNombre()).append("\n");
-        infoMessage.append("📊 *Estado:* ").append(proyecto.getEstatus()).append("\n");
-        
-        // Formatear las fechas si existen
-        if (proyecto.getFechaInicio() != null) {
-            infoMessage.append("📅 *Fecha Inicio:* ")
-                      .append(new SimpleDateFormat("dd/MM/yyyy").format(proyecto.getFechaInicio()))
-                      .append("\n");
-        }
-        
-        if (proyecto.getFechaFin() != null) {
-            infoMessage.append("🏁 *Fecha Fin:* ")
-                      .append(new SimpleDateFormat("dd/MM/yyyy").format(proyecto.getFechaFin()))
-                      .append("\n");
-        }
-        
-        // Agregar información sobre las tareas si existen
-        if (proyecto.getTareas() != null && !proyecto.getTareas().isEmpty()) {
-            infoMessage.append("\n📑 *Tareas asociadas:* ").append(proyecto.getTareas().size());
-        }
-        
-        SendMessage messageToTelegram = new SendMessage();
-        messageToTelegram.setChatId(chatId);
-        messageToTelegram.setText(infoMessage.toString());
-        messageToTelegram.setParseMode("Markdown"); // Habilitar formato Markdown
-        
-        // Crear teclado con opción para volver
-        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-        List<KeyboardRow> keyboard = new ArrayList<>();
-        
-        KeyboardRow row1 = new KeyboardRow();
-        row1.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
-        keyboard.add(row1);
-        
-        KeyboardRow row2 = new KeyboardRow();
-        row2.add(BotLabels.LIST_PROJECTS.getLabel());
-        keyboard.add(row2);
-        
-        keyboardMarkup.setKeyboard(keyboard);
-        keyboardMarkup.setResizeKeyboard(true);
-        messageToTelegram.setReplyMarkup(keyboardMarkup);
-        
-        try {
-            execute(messageToTelegram);
-            // Desactivar el estado de visualización después de mostrar los detalles
-            viewingProjectState.remove(chatId);
-        } catch (TelegramApiException e) {
-            logger.error("Error al enviar mensaje", e);
-        }
-    } else {
-        SendMessage errorMessage = new SendMessage();
-        errorMessage.setChatId(chatId);
-        errorMessage.setText("❌ No se pudo encontrar el proyecto seleccionado.");
-        try {
-            execute(errorMessage);
-        } catch (TelegramApiException e) {
-            logger.error("Error al enviar mensaje de error", e);
-        }
-    }
-	
-			} else if (messageTextFromTelegram.indexOf(BotLabels.DONE.getLabel()) != -1) {
-
-				String done = messageTextFromTelegram.substring(0,
-						messageTextFromTelegram.indexOf(BotLabels.DASH.getLabel()));
-				Integer id = Integer.valueOf(done);
-
-				try {
-
-					ToDoItem item = getToDoItemById(id).getBody();
-					item.setDone(true);
-					updateToDoItem(item, id);
-					BotHelper.sendMessageToTelegram(chatId, BotMessages.ITEM_DONE.getMessage(), this);
-
-				} catch (Exception e) {
-					logger.error(e.getLocalizedMessage(), e);
-				}
-
-			} else if (messageTextFromTelegram.indexOf(BotLabels.UNDO.getLabel()) != -1) {
-
-				String undo = messageTextFromTelegram.substring(0,
-						messageTextFromTelegram.indexOf(BotLabels.DASH.getLabel()));
-				Integer id = Integer.valueOf(undo);
-
-				try {
-
-					ToDoItem item = getToDoItemById(id).getBody();
-					item.setDone(false);
-					updateToDoItem(item, id);
-					BotHelper.sendMessageToTelegram(chatId, BotMessages.ITEM_UNDONE.getMessage(), this);
-
-				} catch (Exception e) {
-					logger.error(e.getLocalizedMessage(), e);
-				}
-
-			} else if (messageTextFromTelegram.indexOf(BotLabels.DELETE.getLabel()) != -1) {
-
-				String delete = messageTextFromTelegram.substring(0,
-						messageTextFromTelegram.indexOf(BotLabels.DASH.getLabel()));
-				Integer id = Integer.valueOf(delete);
-
-				try {
-
-					deleteToDoItem(id).getBody();
-					BotHelper.sendMessageToTelegram(chatId, BotMessages.ITEM_DELETED.getMessage(), this);
-
-				} catch (Exception e) {
-					logger.error(e.getLocalizedMessage(), e);
-				}
-
-			} else if (messageTextFromTelegram.equals(BotCommands.HIDE_COMMAND.getCommand())
-					|| messageTextFromTelegram.equals(BotLabels.HIDE_MAIN_SCREEN.getLabel())) {
-
-				BotHelper.sendMessageToTelegram(chatId, BotMessages.BYE.getMessage(), this);
-
-			} else if (messageTextFromTelegram.equals(BotCommands.TODO_LIST.getCommand())
-					|| messageTextFromTelegram.equals(BotLabels.LIST_ALL_ITEMS.getLabel())
-					|| messageTextFromTelegram.equals(BotLabels.MY_TODO_LIST.getLabel())) {
-
-				List<ToDoItem> allItems = getAllToDoItems();
-				ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-				List<KeyboardRow> keyboard = new ArrayList<>();
-
-				// command back to main screen
-				KeyboardRow mainScreenRowTop = new KeyboardRow();
-				mainScreenRowTop.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
-				keyboard.add(mainScreenRowTop);
-
-				KeyboardRow firstRow = new KeyboardRow();
-				firstRow.add(BotLabels.ADD_NEW_ITEM.getLabel());
-				keyboard.add(firstRow);
-
-				KeyboardRow myTodoListTitleRow = new KeyboardRow();
-				myTodoListTitleRow.add(BotLabels.MY_TODO_LIST.getLabel());
-				keyboard.add(myTodoListTitleRow);
-
-				List<ToDoItem> activeItems = allItems.stream().filter(item -> item.isDone() == false)
-						.collect(Collectors.toList());
-
-				for (ToDoItem item : activeItems) {
-
-					KeyboardRow currentRow = new KeyboardRow();
-					currentRow.add(item.getDescription());
-					currentRow.add(item.getID() + BotLabels.DASH.getLabel() + BotLabels.DONE.getLabel());
-					keyboard.add(currentRow);
-				}
-
-				List<ToDoItem> doneItems = allItems.stream().filter(item -> item.isDone() == true)
-						.collect(Collectors.toList());
-
-				for (ToDoItem item : doneItems) {
-					KeyboardRow currentRow = new KeyboardRow();
-					currentRow.add(item.getDescription());
-					currentRow.add(item.getID() + BotLabels.DASH.getLabel() + BotLabels.UNDO.getLabel());
-					currentRow.add(item.getID() + BotLabels.DASH.getLabel() + BotLabels.DELETE.getLabel());
-					keyboard.add(currentRow);
-				}
-
-				// command back to main screen
-				KeyboardRow mainScreenRowBottom = new KeyboardRow();
-				mainScreenRowBottom.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
-				keyboard.add(mainScreenRowBottom);
-
 				keyboardMarkup.setKeyboard(keyboard);
-
+				keyboardMarkup.setResizeKeyboard(true);
+				
 				SendMessage messageToTelegram = new SendMessage();
 				messageToTelegram.setChatId(chatId);
-				messageToTelegram.setText(BotLabels.MY_TODO_LIST.getLabel());
+				messageToTelegram.setText("Selecciona un proyecto para ver sus detalles:");
 				messageToTelegram.setReplyMarkup(keyboardMarkup);
-
+				
+				// Activar el estado de visualización de proyectos
+				viewingProjectState.put(chatId, true);
+				
 				try {
 					execute(messageToTelegram);
 				} catch (TelegramApiException e) {
 					logger.error(e.getLocalizedMessage(), e);
 				}
+			}
 
-			} else if (messageTextFromTelegram.equals(BotCommands.ADD_ITEM.getCommand())
+			// Agregar el nuevo else if para manejar la selección de un proyecto
+			else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProjectState.getOrDefault(chatId, false)) {
+				// Extraer el ID del proyecto del mensaje
+				String projectInfo = messageTextFromTelegram.substring("📋 Proyecto: ".length());
+				Long projectId = Long.parseLong(projectInfo.split(" - ")[0]);
+				
+				// Obtener el proyecto
+				ResponseEntity<Proyecto> response = ProyectoService.obtenerProyectoPorId(projectId);
+				
+				if (response.getStatusCode() == HttpStatus.OK) {
+					Proyecto proyecto = response.getBody();
+					
+					// Construir el mensaje con la información detallada
+					StringBuilder infoMessage = new StringBuilder();
+					infoMessage.append("📋 *Detalles del Proyecto*\n\n");
+					infoMessage.append("🆔 *ID:* ").append(proyecto.getId()).append("\n");
+					infoMessage.append("📝 *Nombre:* ").append(proyecto.getNombre()).append("\n");
+					infoMessage.append("📊 *Estado:* ").append(proyecto.getEstatus()).append("\n");
+					
+					// Formatear las fechas si existen
+					if (proyecto.getFechaInicio() != null) {
+						infoMessage.append("📅 *Fecha Inicio:* ")
+								.append(new SimpleDateFormat("dd/MM/yyyy").format(proyecto.getFechaInicio()))
+								.append("\n");
+					}
+					
+					if (proyecto.getFechaFin() != null) {
+						infoMessage.append("🏁 *Fecha Fin:* ")
+								.append(new SimpleDateFormat("dd/MM/yyyy").format(proyecto.getFechaFin()))
+								.append("\n");
+					}
+					
+					// Agregar información sobre las tareas si existen
+					if (proyecto.getTareas() != null && !proyecto.getTareas().isEmpty()) {
+						infoMessage.append("\n📑 *Tareas asociadas:* ").append(proyecto.getTareas().size());
+					}
+					
+					SendMessage messageToTelegram = new SendMessage();
+					messageToTelegram.setChatId(chatId);
+					messageToTelegram.setText(infoMessage.toString());
+					messageToTelegram.setParseMode("Markdown"); // Habilitar formato Markdown
+					
+					// Crear teclado con opción para volver
+					ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+					List<KeyboardRow> keyboard = new ArrayList<>();
+					
+					KeyboardRow row1 = new KeyboardRow();
+					row1.add(BotLabels.SHOW_MAIN_SCREEN.getLabel());
+					keyboard.add(row1);
+					
+					KeyboardRow row2 = new KeyboardRow();
+					row2.add(BotLabels.LIST_PROJECTS.getLabel());
+					keyboard.add(row2);
+					
+					keyboardMarkup.setKeyboard(keyboard);
+					keyboardMarkup.setResizeKeyboard(true);
+					messageToTelegram.setReplyMarkup(keyboardMarkup);
+					
+					try {
+						execute(messageToTelegram);
+						// Desactivar el estado de visualización después de mostrar los detalles
+						viewingProjectState.remove(chatId);
+					} catch (TelegramApiException e) {
+						logger.error("Error al enviar mensaje", e);
+					}
+				} else {
+					SendMessage errorMessage = new SendMessage();
+					errorMessage.setChatId(chatId);
+					errorMessage.setText("❌ No se pudo encontrar el proyecto seleccionado.");
+					try {
+						execute(errorMessage);
+					} catch (TelegramApiException e) {
+						logger.error("Error al enviar mensaje de error", e);
+					}
+				}
+			
+			}else if (messageTextFromTelegram.equals(BotCommands.HIDE_COMMAND.getCommand())
+					|| messageTextFromTelegram.equals(BotLabels.HIDE_MAIN_SCREEN.getLabel())) {
+
+				BotHelper.sendMessageToTelegram(chatId, BotMessages.BYE.getMessage(), this);
+
+			}else if (messageTextFromTelegram.equals(BotCommands.ADD_ITEM.getCommand())
 					|| messageTextFromTelegram.equals(BotLabels.ADD_NEW_ITEM.getLabel())) {
 				try {
 					SendMessage messageToTelegram = new SendMessage();
@@ -562,7 +440,6 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 				} catch (Exception e) {
 					logger.error(e.getLocalizedMessage(), e);
 				}
-
 			}
 		}
 	}
@@ -1322,56 +1199,5 @@ else if (messageTextFromTelegram.startsWith("📋 Proyecto: ") && viewingProject
 	@Override
 	public String getBotUsername() {		
 		return botName;
-	}
-
-	// GET /todolist
-	public List<ToDoItem> getAllToDoItems() { 
-		return toDoItemService.findAll();
-	}
-
-	// GET BY ID /todolist/{id}
-	public ResponseEntity<ToDoItem> getToDoItemById(@PathVariable int id) {
-		try {
-			ResponseEntity<ToDoItem> responseEntity = toDoItemService.getItemById(id);
-			return new ResponseEntity<ToDoItem>(responseEntity.getBody(), HttpStatus.OK);
-		} catch (Exception e) {
-			logger.error(e.getLocalizedMessage(), e);
-			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-		}
-	}
-
-	// PUT /todolist
-	public ResponseEntity addToDoItem(@RequestBody ToDoItem todoItem) throws Exception {
-		ToDoItem td = toDoItemService.addToDoItem(todoItem);
-		HttpHeaders responseHeaders = new HttpHeaders();
-		responseHeaders.set("location", "" + td.getID());
-		responseHeaders.set("Access-Control-Expose-Headers", "location");
-		// URI location = URI.create(""+td.getID())
-
-		return ResponseEntity.ok().headers(responseHeaders).build();
-	}
-
-	// UPDATE /todolist/{id}
-	public ResponseEntity updateToDoItem(@RequestBody ToDoItem toDoItem, @PathVariable int id) {
-		try {
-			ToDoItem toDoItem1 = toDoItemService.updateToDoItem(id, toDoItem);
-			System.out.println(toDoItem1.toString());
-			return new ResponseEntity<>(toDoItem1, HttpStatus.OK);
-		} catch (Exception e) {
-			logger.error(e.getLocalizedMessage(), e);
-			return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
-		}
-	}
-
-	// DELETE todolist/{id}
-	public ResponseEntity<Boolean> deleteToDoItem(@PathVariable("id") int id) {
-		Boolean flag = false;
-		try {
-			flag = toDoItemService.deleteToDoItem(id);
-			return new ResponseEntity<>(flag, HttpStatus.OK);
-		} catch (Exception e) {
-			logger.error(e.getLocalizedMessage(), e);
-			return new ResponseEntity<>(flag, HttpStatus.NOT_FOUND);
-		}
 	}
 }
