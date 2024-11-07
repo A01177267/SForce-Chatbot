@@ -4,8 +4,8 @@ FROM openjdk:22
 WORKDIR /tmp/
 EXPOSE 8080
 COPY target/MyTodoList-0.0.1-SNAPSHOT.jar MyTodoList.jar
-RUN mkdir -p /mtdrworkshop/creds
-COPY wallet/ /mtdrworkshop/creds
+#RUN mkdir -p /mtdrworkshop/creds
+#COPY wallet/ /mtdrworkshop/creds
 ENV db_user="ADMIN"
 #ENV ui_username="admin"
 #ENV ui_password="none0001"
