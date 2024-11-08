@@ -45,6 +45,8 @@ steps:
             mkdir -p $HOME/.kube
             oci ce cluster create-kubeconfig --cluster-id ocid1.cluster.oc1.mx-queretaro-1.aaaaaaaaxulqjkcdc636rdr4fcpzwyeqvalym4kwhewpeuep7cugqjs3fvsq --file $HOME/.kube/config --region mx-queretaro-1 --token-version 2.0.0  --kube-endpoint PUBLIC_ENDPOINT
             export KUBECONFIG=$HOME/.kube/config
+            pwd
             cd $REPO/MtdrSpring;
+            pwd
             source env.sh;
             (cd backend;source undeploy.sh)
