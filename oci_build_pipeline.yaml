@@ -37,6 +37,7 @@ steps:
     name: "Undeploy"
     command:
             REPO=$(pwd)
+            echo $REPO
             mkdir $HOME/kube
             cd $HOME/kube
             wget https://dl.k8s.io/v1.31.2/bin/linux/amd64/kubectl
