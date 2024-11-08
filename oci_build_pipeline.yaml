@@ -36,6 +36,7 @@ steps:
   - type: Command
     name: "Undeploy"
     command:
+            pwd
             REPO=$(pwd)
             echo $REPO
             mkdir $HOME/kube
@@ -44,10 +45,9 @@ steps:
             export PATH=$PATH:/$HOME/kube
             mkdir -p $HOME/.kube
             oci ce cluster create-kubeconfig --cluster-id ocid1.cluster.oc1.mx-queretaro-1.aaaaaaaaxulqjkcdc636rdr4fcpzwyeqvalym4kwhewpeuep7cugqjs3fvsq --file $HOME/.kube/config --region mx-queretaro-1 --token-version 2.0.0  --kube-endpoint PUBLIC_ENDPOINT
-            export KUBECONFIG=$HOME/.kube/config
-            cd $REPO
-            pwd
-            cd MtdrSpring;
+            export KUBECONFIG=$HOME/.kube/config\
+            cd ~
+            cd reacttodo/oci-react-samples/MtdrSpring;
             pwd
             source env.sh;
             (cd backend;source undeploy.sh)
