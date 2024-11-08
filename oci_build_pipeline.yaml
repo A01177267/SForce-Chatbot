@@ -36,23 +36,26 @@ steps:
   - type: Command
     name: "Undeploy"
     command:
-      pwd
       REPO=$(pwd)
-      echo $REPO
       mkdir $REPO/kube
       cd $REPO/kube
       wget https://dl.k8s.io/v1.31.2/bin/linux/amd64/kubectl
       chmod +x kubectl 
       export PATH=$PATH:/$REPO/kube
+      echo kubectlver
       kubectl version
       mkdir -p $REPO/.kube
       cd .kube
       oci ce cluster create-kubeconfig --cluster-id ocid1.cluster.oc1.mx-queretaro-1.aaaaaaaaxulqjkcdc636rdr4fcpzwyeqvalym4kwhewpeuep7cugqjs3fvsq --file $REPO/.kube/config --region mx-queretaro-1 --token-version 2.0.0  --kube-endpoint PUBLIC_ENDPOINT
       export KUBECONFIG=$REPO/.kube/config
+      echo ls -la
       ls -la
       pwd
       ls -la ../
+      echo cd MtdrSpring
       cd $REPO/MtdrSpring
       pwd
+      echo env.sh
       source env.sh;
+      echo backend undeploy
       (cd backend;source undeploy.sh)
