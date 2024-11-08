@@ -46,12 +46,13 @@ steps:
       export PATH=$PATH:/$REPO/kube
       kubectl version
       mkdir -p $REPO/.kube
+      cd .kube
       oci ce cluster create-kubeconfig --cluster-id ocid1.cluster.oc1.mx-queretaro-1.aaaaaaaaxulqjkcdc636rdr4fcpzwyeqvalym4kwhewpeuep7cugqjs3fvsq --file $REPO/.kube/config --region mx-queretaro-1 --token-version 2.0.0  --kube-endpoint PUBLIC_ENDPOINT
       export KUBECONFIG=$REPO/.kube/config
       ls -la
       pwd
       ls -la ../
-      cd ../MtdrSpring
+      cd $REPO/MtdrSpring
       pwd
       source env.sh;
       (cd backend;source undeploy.sh)
