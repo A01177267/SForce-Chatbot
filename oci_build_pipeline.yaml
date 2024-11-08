@@ -39,15 +39,16 @@ steps:
       pwd
       REPO=$(pwd)
       echo $REPO
-      mkdir $HOME/kube
-      cd $HOME/kube
+      mkdir $REPO/kube
+      cd $REPO/kube
       wget https://dl.k8s.io/v1.31.2/bin/linux/amd64/kubectl
-      export PATH=$PATH:/$HOME/kube
-      mkdir -p $HOME/.kube
-      oci ce cluster create-kubeconfig --cluster-id ocid1.cluster.oc1.mx-queretaro-1.aaaaaaaaxulqjkcdc636rdr4fcpzwyeqvalym4kwhewpeuep7cugqjs3fvsq --file $HOME/.kube/config --region mx-queretaro-1 --token-version 2.0.0  --kube-endpoint PUBLIC_ENDPOINT
-      export KUBECONFIG=$HOME/.kube/config
-      cd ~
-      cd reacttodo/oci-react-samples/MtdrSpring;
+      chmod +x kubectl 
+      export PATH=$PATH:/$REPO/kube
+      kubectl version
+      mkdir -p $REPO/.kube
+      oci ce cluster create-kubeconfig --cluster-id ocid1.cluster.oc1.mx-queretaro-1.aaaaaaaaxulqjkcdc636rdr4fcpzwyeqvalym4kwhewpeuep7cugqjs3fvsq --file $REPO/.kube/config --region mx-queretaro-1 --token-version 2.0.0  --kube-endpoint PUBLIC_ENDPOINT
+      export KUBECONFIG=$REPO/.kube/config
+      cd ../MtdrSpring
       pwd
       source env.sh;
       (cd backend;source undeploy.sh)
