@@ -137,7 +137,7 @@ function App() {
         if (response.ok) {
           return response.json();
         } else {
-          throw new Error("La cagaste");
+          throw new Error("Error");
         }
       })
       .then(
