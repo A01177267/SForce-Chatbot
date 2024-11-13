@@ -335,7 +335,7 @@ function App() {
             style={{ width: "100px", height: "auto" }}
           />
         </div>
-        <h3>Oracle Todo App</h3>
+        <h3>Oracle Todo App Trigger Demo</h3>
       </header>
 
       <div>
