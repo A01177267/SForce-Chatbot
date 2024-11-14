@@ -3,6 +3,7 @@ package com.springboot.MyTodoList.util;
 public enum BotMessages {
 
     HELLO_MYTODO_BOT("Hello! I'm SForce Bot! Please choose an option below"),
+    CODE_REVIEW("Starting code review: "),
     BOT_REGISTERED_STARTED("Bot registered and started successfully!"),
     ITEM_DONE("Item marked as done! Write /start to go to the main screen."),
     ITEM_UNDONE("Item marked as undone! Write /start to go to the main screen."),

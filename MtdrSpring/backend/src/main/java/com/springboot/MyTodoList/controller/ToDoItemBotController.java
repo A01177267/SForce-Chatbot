@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.assertj.core.internal.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -35,6 +36,15 @@ import com.springboot.MyTodoList.util.BotLabels;
 import com.springboot.MyTodoList.util.BotMessages;
 
 public class ToDoItemBotController extends TelegramLongPollingBot {
+	private List<String> preguntas = List.of(
+    "¿Importaste dependencias correctamente? (Y/N)",
+    "¿Documentaste con comentarios? (Y/N)",
+    "¿Nombraste correctamente las funciones? (Y/N)", 
+    "¿Usaste los servicios ya establedicos? (Y/N)",
+    "¿Hiciste pruebas sobre todas las funcionalidades? (Y/N)",
+    "¿Encontraste algun error previo a tus modificaciones? (Y/N)",
+    "¿Hiciste cambios al backend? (Y/N)"
+	);
 
 	private static final Logger logger = LoggerFactory.getLogger(ToDoItemBotController.class);
 	private ToDoItemService toDoItemService;
@@ -52,6 +62,10 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 	private Map<Long, Boolean> viewingTasksState = new HashMap<>();
 	private Map<Long, Boolean> deletingTaskState = new HashMap<>();
 	private Map<Long, Long> selectedTaskMap = new HashMap<>();
+	private Map<Long, Integer> userCurrentQuestion = new HashMap<>();
+	private Map<Long, List<String>> userResponses = new HashMap<>();
+
+	private String currentReviewer;
 
     private enum CreateProjectState {
         ENTERING_NAME,
@@ -208,6 +222,10 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 				row.add(BotLabels.LIST_TASKS.getLabel());
 				row.add(BotLabels.DELETE_TASK.getLabel());
 				keyboard.add(row);
+
+				row = new KeyboardRow();
+				row.add(BotLabels.CODE_REVIEW.getLabel());
+				keyboard.add(row);
 	
 				// Configuración del teclado
 				keyboardMarkup.setKeyboard(keyboard);
@@ -218,7 +236,6 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 				} catch (TelegramApiException e) {
 					logger.error(e.getLocalizedMessage(), e);
 				}
-	
 			} 
 			
             else if (messageTextFromTelegram.equals(BotLabels.ADD_PROJECT.getLabel())) {
@@ -244,6 +261,12 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 			else if (messageTextFromTelegram.equals(BotLabels.DELETE_TASK.getLabel())) {
 				startTaskDeletion(chatId);
 				return;
+			}
+			else if(messageTextFromTelegram.equals(BotLabels.CODE_REVIEW.getLabel())) {
+				startCodeReview(chatId);
+			}
+			else if(userCurrentQuestion.containsKey(chatId)) {
+				processAnswer(chatId, messageTextFromTelegram);
 			}
             // Manejar los estados de creación de tarea
             else if (taskCreationStates.containsKey(chatId)) {
@@ -1193,6 +1216,77 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 		} catch (Exception e) {
 			logger.error("Error al procesar la eliminación del proyecto", e);
 			sendErrorMessage(chatId, "Hubo un error al procesar tu solicitud. Por favor, intenta de nuevo.");
+		}
+	}
+
+
+	private void startCodeReview(long chatId) {
+		SendMessage message = new SendMessage();
+		message.setChatId(chatId);
+		message.setText("Por favor ingresa tu nombre:");
+		
+		try {
+			execute(message);
+			userCurrentQuestion.put(chatId, -1);
+			userResponses.put(chatId, new ArrayList<>());
+		} catch (TelegramApiException e) {
+			logger.error(e.getLocalizedMessage(), e);
+		}
+	 }
+	
+	private void sendQuestion(long chatId, int preguntaIndex) {
+		SendMessage message = new SendMessage();
+		message.setChatId(chatId);
+		message.setText(preguntas.get(preguntaIndex));
+		
+		try {
+			execute(message);
+		} catch (TelegramApiException e) {
+			logger.error(e.getLocalizedMessage(), e);
+		}
+	}
+	
+	private void processAnswer(long chatId, String answer) {
+		int currentQuestion = userCurrentQuestion.get(chatId);
+		
+		if (currentQuestion == -1) {
+			currentReviewer = answer;
+			userCurrentQuestion.put(chatId, 0);
+			sendQuestion(chatId, 0);
+			return;
+		}
+	 
+		userResponses.get(chatId).add(answer);
+	 
+		if (currentQuestion < preguntas.size() - 1) {
+			userCurrentQuestion.put(chatId, currentQuestion + 1);
+			sendQuestion(chatId, currentQuestion + 1);
+		} else {
+			sendSummary(chatId);
+			userCurrentQuestion.remove(chatId);
+			userResponses.remove(chatId);
+		}
+	}
+	
+	private void sendSummary(long chatId) {
+		StringBuilder summary = new StringBuilder("Code Review hecho por: " + currentReviewer + "\n\n");
+		List<String> responses = userResponses.get(chatId);
+		
+		for (int i = 0; i < preguntas.size(); i++) {
+			summary.append(preguntas.get(i))
+				   .append(" : ")
+				   .append(responses.get(i))
+				   .append("\n");
+		}
+	 
+		SendMessage summaryMessage = new SendMessage();
+		summaryMessage.setChatId(chatId);
+		summaryMessage.setText(summary.toString());
+		
+		try {
+			execute(summaryMessage);
+		} catch (TelegramApiException e) {
+			logger.error(e.getLocalizedMessage(), e);
 		}
 	}
 
