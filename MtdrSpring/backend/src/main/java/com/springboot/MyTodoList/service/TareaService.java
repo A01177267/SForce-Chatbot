@@ -29,22 +29,19 @@ public class TareaService {
     private static final Logger logger = LoggerFactory.getLogger(TareaService.class);
 
     // Create a new task
-    public Tarea crearTarea(Long proyectId, Tarea tarea) {
-        //inicializr obj Proyecto
-        logger.info("SET PROYECTO "+proyectId);
-        //ProyectoService ps = new ProyectoService();
-        //ResponseEntity<Proyecto> pid = ps.obtenerProyectoPorId(tarea.proyectoID);
-
-        pr.findById(proyectId).map(proyecto -> {
-            logger.info("SET PROYECTO 2");
-            tarea.setProyecto(proyecto);
-            logger.info("SET PROYECTO 3");
-            return tareaRepository.save(tarea);
-        });
-
-        //tarea.setProyecto(pid.getBody());
-        logger.info("set proyecto = SUCCESS");
-        return tarea;
+    public Tarea crearTarea(Long proyectoId, Tarea tarea) {
+        logger.info("Iniciando creación de tarea para proyecto ID: " + proyectoId);
+        
+        return pr.findById(proyectoId)
+            .map(proyecto -> {
+                tarea.setProyecto(proyecto);
+                logger.info("Proyecto encontrado, guardando tarea");
+                return tareaRepository.save(tarea);
+            })
+            .orElseThrow(() -> {
+                logger.error("Proyecto no encontrado con ID: " + proyectoId);
+                return new RuntimeException("Proyecto no encontrado con ID: " + proyectoId);
+            });
     }
 
     // List all tasks
@@ -71,7 +68,9 @@ public class TareaService {
     // Delete a task
     public boolean eliminarTarea(Long id) {
         if (tareaRepository.existsById(id)) {
+            System.out.println("deleting id " + id);
             tareaRepository.deleteById(id);
+            System.out.println("deleted id " + id);
             return true;
         }
         return false;

@@ -20,7 +20,10 @@ public enum BotCommands {
     LIST_TASKS("/listtasks"), // Nuevo comando para listar tareas
     UPDATE_TASK("/updatetask"), // Nuevo comando para actualizar una tarea
     DELETE_TASK("/deletetask"), // Nuevo comando para eliminar una tarea
-    GET_TASK("/gettask"); // Nuevo comando para obtener detalles de una tarea
+    GET_TASK("/gettask"), // Nuevo comando para obtener detalles de una tarea
+
+    //Comando para Code Review
+    CODE_REVIEW("/codereview"); // Nuevo comando para eliminar una tarea
 
     private String command;
 

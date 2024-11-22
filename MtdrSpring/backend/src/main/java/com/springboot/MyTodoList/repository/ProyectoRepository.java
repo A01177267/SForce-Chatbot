@@ -14,6 +14,8 @@ import java.util.List;
 
 @Repository
 public interface ProyectoRepository extends JpaRepository<Proyecto, Long> {
+
+    List<Proyecto> findByNombre(String nombre);
     // Encuentra proyectos por su estatus
     List<Proyecto> findByEstatus(String estatus);
 

@@ -1,4 +1,4 @@
-version: 0.1 
+version: 0.1
 component: build
 timeoutInSeconds: 600
 shell: bash
@@ -22,15 +22,41 @@ steps:
   - type: Command
     name: "Docker Login"
     command:  cd MtdrSpring;
-              oci os object get --bucket-name reacttodo-rrs2o --name pipeline.tgz --file pipeline.tgz;
-              tar -xzvf pipeline.tgz;
-              source env.sh;
-              cat at.cfg | docker login -u "axjw7go3pgfx/a00829704@tec.mx" --password-stdin mx-queretaro-1.ocir.io
+      oci os object get --bucket-name reacttodo-rrs2o --name pipeline.tgz --file pipeline.tgz;
+      tar -xzvf pipeline.tgz;
+      source env.sh;
+      cat at.cfg | docker login -u "axjw7go3pgfx/a00829704@tec.mx" --password-stdin mx-queretaro-1.ocir.io
 
   - type: Command
     name: "Build"
     command:  cd MtdrSpring;
-              source env.sh;
-              (cd backend;source build.sh)
+      source env.sh;
+      (cd backend;source build.sh)
 
-
+  - type: Command
+    name: "Undeploy"
+    command:
+      REPO=$(pwd);
+      mkdir $REPO/kube;
+      cd $REPO/kube;
+      wget https://dl.k8s.io/v1.31.2/bin/linux/amd64/kubectl;
+      chmod +x kubectl;
+      export PATH=$PATH:/$REPO/kube;
+      echo "kubectlver";
+      kubectl version;
+      mkdir -p $REPO/.kube;
+      cd .kube;
+      oci ce cluster create-kubeconfig --cluster-id ocid1.cluster.oc1.mx-queretaro-1.aaaaaaaaxulqjkcdc636rdr4fcpzwyeqvalym4kwhewpeuep7cugqjs3fvsq --file $REPO/.kube/config --region mx-queretaro-1 --token-version 2.0.0  --kube-endpoint PUBLIC_ENDPOINT;
+      export KUBECONFIG=$REPO/.kube/config;
+      echo "ls -la";
+      ls -la;
+      pwd;
+      ls -la ../;
+      echo "cd MtdrSpring";
+      cd $REPO/MtdrSpring;
+      pwd;
+      echo "env.sh";
+      source env.sh;
+      echo "backend undeploy";
+      cd backend;
+      source undeploy.sh;

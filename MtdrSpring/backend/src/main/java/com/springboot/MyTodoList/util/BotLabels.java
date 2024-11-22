@@ -12,8 +12,12 @@ public enum BotLabels {
 	MY_TODO_LIST("MY TODO LIST"),
 	DASH("-"),
 	LIST_PROJECTS("List Projects"), 
-	ADD_PROJECT("Add Project"), 
+	ADD_PROJECT("Add Project"),
+	UPDATE_PROJECT("Update Project"),
+	DELETE_PROJECT("Delete Project"),
 	LIST_TASKS("List Tasks"),
+	DELETE_TASK("Delete Task"),
+	CODE_REVIEW("Code Review"),
 	ADD_TASK("Add Task"); 
 
 	private String label;
