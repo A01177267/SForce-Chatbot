@@ -1,6 +1,6 @@
 version: 0.1
 component: build
-timeoutInSeconds: 1200
+timeoutInSeconds: 36000
 shell: bash
 
 env:
