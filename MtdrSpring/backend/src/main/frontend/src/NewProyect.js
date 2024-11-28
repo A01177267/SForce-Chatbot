@@ -11,6 +11,8 @@
 
 import React, { useState } from "react";
 import Button from '@mui/material/Button';
+import AddBoxIcon from '@mui/icons-material/AddBox';
+
 
 
 function NewProject(props) {
@@ -29,15 +31,15 @@ function NewProject(props) {
     setProject(e.target.value);
   }
   return (
-    <div id="newprojectinputform" >
+    <div className="newprojectinputform" >
     <form>
       <input
         id="newprojectinput"
-        placeholder="Nueva Proyecto"
+        placeholder="Nuevo Sprint"
         type="text"
         autoComplete="off"
         value={project}
-        style={{ width: '70%' }}
+        style={{ width: '75%', border: "none" ,backgroundColor:"transparent", outline:"none"}}
         onChange={handleChange}
         // No need to click on the "ADD" button to add a todo item. You
         // can simply press "Enter":
@@ -50,12 +52,11 @@ function NewProject(props) {
       <span>&nbsp;&nbsp;</span>
       <Button
         className="AddProjectButton"
-        variant="contained"
         disabled={props.isInserting}
         onClick={!props.isInserting ? handleSubmit : null}
         size="small"
       >
-        {props.isInserting ? 'Añadiendo…' : '+'}
+        {props.isInserting ? 'Añadiendo…' : <AddBoxIcon style={{ color: '#333' }}/>}
       </Button>
     </form>
     </div>

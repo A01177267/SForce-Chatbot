@@ -15,7 +15,9 @@ import NewItem from "./NewItem";
 import EditModal from "./EditModal";
 import NewProject from "./NewProyect";
 import API_LIST from "./API";
-import DeleteIcon from "@mui/icons-material/Delete";
+import HighlightOffSharpIcon from '@mui/icons-material/HighlightOffSharp';
+import MoreHorizOutlinedIcon from '@mui/icons-material/MoreHorizOutlined';
+import TelegramIcon from '@mui/icons-material/Telegram';
 import { Button, TableBody, CircularProgress } from "@mui/material";
 import Moment from "react-moment";
 import {
@@ -388,6 +390,7 @@ function App() {
         </div>
         <h3>Oracle Todo App</h3>
         <Button
+          startIcon={<TelegramIcon />}
           variant="contained"
           color="primary"
           onClick={() => window.open('https://web.telegram.org/a/#7422535800', '_blank')}
@@ -400,7 +403,7 @@ function App() {
       <div>
         {/* Projects Section (Left) */}
         <aside className="projects">
-            <div id="mainprojects">
+            <div className="mainprojects">
                 <h3>Sprints</h3>
                 <NewProject addProject={addProject} isInserting={isInserting} />
 
@@ -414,40 +417,33 @@ function App() {
                         {projects.map(
                             (project) =>
                             project.estatus === "Active" && (
-                                <tr key={project.id}>
+                                <tr key={project.id} tabIndex="0" className="clickable-row">
                                 <td className="description" onClick={() => handleClickCurrentProject(project.id, project.tareas, project)}>
                                     {project.nombre}
                                 </td>
-                                <td className="date">
+                                <td className="date" onClick={() => handleClickCurrentProject(project.id, project.tareas, project)}>
                                     <Moment format="MMM Do hh:mm:ss">
                                     {project.fechaInicio}
                                     </Moment>
                                 </td>
                                 <td>
                                     <Button
-                                    variant="contained"
                                     className="editButton"
                                     onClick={() => openEditModal(project, 'project')}
-                                    size="small"
-                                    style={{ backgroundColor: "blue", color: "white" }}
+                                    style={{color: "#3A3632" }}
                                     >
-                                    Edit
+                                   <MoreHorizOutlinedIcon/>
                                     </Button>
                                 </td>
                                 <td>
                                     <Button
-                                    variant="contained"
                                     className="delete"
-                                    size="small"
                                     onClick={() => deleteProyect(project.id)}
                                     style={{
-                                        backgroundColor: "red",
-                                        color: "white",
-                                        borderRadius: "12px",
-                                        borderBottom: "1px solid #ddd",
+                                        color: "red",
                                     }}
                                     >
-                                    <DeleteIcon />
+                                    <HighlightOffSharpIcon/>
                                     </Button>
                                 </td>
                                 </tr>
@@ -463,7 +459,7 @@ function App() {
 
         {/* Tasks List (Center) */}
         <main>
-            <div id="TaskList">
+            <div className="TaskList">
                 <h3>Lista de Tareas</h3>
                 {currentProjectId && <NewItem addItem={addItem} isInserting={isInserting} />}
 
@@ -471,46 +467,39 @@ function App() {
                 {isLoading && <CircularProgress />}
                 {!isLoading && currentProjectId && (
                 <div>
-                    <div id="maincontent">
-                    <table id="itemlistNotDone" className="itemlist">
+                    <div className="maincontent">
+                    <table className="itemlist">
                         <TableBody>
                         {items.map(
                             (item) =>
                             item.estatus === "In Progress" && (
-                                <tr key={item.id}>
+                                <tr key={item.id} tabIndex="0" className="clickable-row">
                                 <td className="description" onClick={() => handleClickCurrentTask(item.id, item)}>
                                     {item.descripcion}
                                 </td>
-                                <td className="date">
+                                <td className="date"  onClick={() => handleClickCurrentTask(item.id, item)}>
                                     <Moment format="MMM Do hh:mm:ss">
                                     {item.fechaFinalizacion}
                                     </Moment>
                                 </td>
                                 <td>
                                     <Button
-                                    variant="contained"
                                     className="editButton"
                                     onClick={() => openEditModal(item, 'task')}
-                                    size="small"
-                                    style={{ backgroundColor: "blue", color: "white" }}
+                                    style={{color: "#3A3632" }}
                                     >
-                                    Edit
+                                    <MoreHorizOutlinedIcon/>
                                     </Button>
                                 </td>
                                 <td>
                                     <Button
-                                    variant="contained"
                                     className="delete"
-                                    size="small"
                                     onClick={() => deleteItem(item.id)}
                                     style={{
-                                        backgroundColor: "red",
-                                        color: "white",
-                                        borderRadius: "12px",
-                                        borderBottom: "1px solid #ddd",
+                                        color: "red",
                                     }}
                                     >
-                                    <DeleteIcon />
+                                    <HighlightOffSharpIcon/>
                                     </Button>
                                 </td>
                                 </tr>
@@ -522,6 +511,7 @@ function App() {
                 </div>
                 )}
             </div>
+
             <div className="chart-section">
               <h3>Sprint Estadisticas</h3>
               {projects.length > 0 ? renderChart(calculateAverages(projects)) : <p>Loading charts...</p>}
@@ -560,7 +550,7 @@ function App() {
                 {isLoading && <CircularProgress />}
                 {!isLoading && currentProjectId && (
                 <div>
-                    <div id="maincontent">
+                    <div id="maincontentdone">
                     <table id="itemlistNotDone" className="itemlist">
                         <TableBody>
                         {items.map(
